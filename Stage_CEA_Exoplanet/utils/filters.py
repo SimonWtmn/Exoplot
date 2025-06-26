@@ -76,7 +76,9 @@ def apply_filters(
 
     # ------------------------ Stellar filters ------------------------
     if st_type is not None:
-        df_filtered = df_filtered[df_filtered['st_spectype'].fillna('').str.startswith(st_type)]
+        df_filtered = df_filtered[
+            df_filtered['st_spectype'].fillna('').str.upper().str.strip().str.startswith(st_type.upper())
+        ]
 
     if Teff_min is not None:
         df_filtered = df_filtered[df_filtered['st_teff'] > Teff_min]
@@ -105,7 +107,7 @@ def apply_filters(
     if Fulton_2017:
         mask = df_filtered['st_teff'].notna() & df_filtered['st_rad'].notna()
         teff = df_filtered.loc[mask, 'st_teff']
-        threshold = 10 ** (0.00025 * ( teff / ( 1 - 5500) + 0.20) )
+        threshold = 10 ** (0.00025 * ( teff / ( 5000 - 5500) + 0.20) )
         valid = df_filtered.loc[mask, 'st_rad'] > threshold
         df_filtered = df_filtered.loc[mask].loc[valid]
 
@@ -173,5 +175,4 @@ def apply_filters(
         df_filtered = df_filtered[df_filtered['sy_pnum'] <= multiplicity_max]
 
     return df_filtered
-
 

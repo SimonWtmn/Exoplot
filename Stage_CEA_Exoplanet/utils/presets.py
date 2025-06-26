@@ -6,7 +6,7 @@ function for common spectral types, missions, and research paper selections.
 It also includes a customizable placeholder preset for user-defined filters
 in a separate notebook (e.g., main.py).
 
-Author: S.WITTMANN & V.RAGNER
+Author: S.WITTMANN & V.REGNARD
 Repository: https://github.com/SimonWtmn/Stage_CEA_Exoplanet
 """
 

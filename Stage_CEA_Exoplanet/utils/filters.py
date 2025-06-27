@@ -27,7 +27,7 @@ def apply_filters(
     Teff_min=None, Teff_max=None,
     metallicity_min=None, metallicity_max=None,
     age_min=None, age_max=None,
-    stellar_radius_err_max=None,
+    st_rad_min=None, st_rad_max=None, st_rad_err=None,
     Fulton_2017=False,
 
     # Planetary filters
@@ -98,11 +98,17 @@ def apply_filters(
     if age_max is not None:
         df_filtered = df_filtered[df_filtered['st_age'] < age_max]
 
-    if stellar_radius_err_max is not None:
+    if st_rad_min is not None:
+        df_filtered = df_filtered[df_filtered['st_rad'] > st_rad_min]
+
+    if st_rad_max is not None:
+        df_filtered = df_filtered[df_filtered['st_rad'] < st_rad_max]
+
+    if st_rad_err is not None:
         mask = df_filtered['st_rad'].notna() & df_filtered['st_raderr1'].notna() & df_filtered['st_raderr2'].notna()
         err = df_filtered[['st_raderr1', 'st_raderr2']].max(axis=1)
         snr = err / df_filtered['st_rad']
-        df_filtered = df_filtered[mask & (snr < stellar_radius_err_max)]
+        df_filtered = df_filtered[mask & (snr < st_rad_err)]
 
     if Fulton_2017:
         mask = df_filtered['st_teff'].notna() & df_filtered['st_rad'].notna()

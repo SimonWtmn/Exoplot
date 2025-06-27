@@ -21,6 +21,9 @@ df = pd.read_csv(
 )
 df.columns = df.columns.str.strip()
 
+df = apply_filters(df, st_rad_err=50)
+
+
 
 
 # ------------------------ STELLAR TYPE PRESETS ------------------------
@@ -79,12 +82,19 @@ MISSION_PRESETS = {
 
 # ------------------------ PAPER PRESETS ------------------------
 
+def Fulton_2017_full_data():
+    return apply_filters(
+        df,
+        mission='Kepler', date_max=2017,
+        Teff_min=4700, Teff_max=6500,
+    )
+
 def Fulton_2017():
     return apply_filters(
         df,
         mission='Kepler', date_max=2017, kp=14.2,
-        Teff_min=4700, Teff_max=6500, Fulton_2017=True,
-        b=0.7
+        Teff_min=4700, Teff_max=6500, Fulton_2017=True, st_rad_max=2,
+        b=0.7, rade_max=5
     )
 
 def Luque_Paille_2022():
@@ -97,6 +107,7 @@ def Luque_Paille_2022():
     )
 
 PAPER_PRESETS = {
+    "Fulton_2017_full_data": Fulton_2017_full_data,
     "Fulton_2017": Fulton_2017,
     "Luque_Paille_2022": Luque_Paille_2022,
 }
@@ -106,12 +117,24 @@ PAPER_PRESETS = {
 # ------------------------ CUSTOM USER PRESET ------------------------
 # This function acts as a placeholder that users can modify in main.py
 
-def custom_user_preset():
-    """
-    This function is intended to be overwritten by the user in a notebook (main.py)
-    to apply any custom filter configuration they want interactively.
-    """
-    return apply_filters(df)  # <-- Add parameters in main.py as needed
+def custom_user_preset(
+    mission=None,
+    st_type=None,
+    Teff_min=4500, Teff_max=6500,
+    rade_max=None,
+    mass_err=None,
+    density_min=None
+):
+    return apply_filters(
+        df,
+        mission=mission,
+        st_type=st_type,
+        Teff_min=Teff_min,
+        Teff_max=Teff_max,
+        rade_max=rade_max,
+        mass_err=mass_err,
+        density_min=density_min
+    )
 
 USER_PRESET = {
     "Custom": custom_user_preset

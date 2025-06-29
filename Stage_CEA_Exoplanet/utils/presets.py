@@ -1,141 +1,193 @@
 """
 Presets for Filtering Exoplanet Dataset
 ----------------------------------------
-This module contains predefined filtering presets using the `apply_filters()`
-function for common spectral types, missions, and research paper selections.
-It also includes a customizable placeholder preset for user-defined filters
-in a separate notebook (e.g., main.py).
+
+This module provides predefined filtering presets for common exoplanet research use-cases.
+
+Usage:
+    from utils.presets import load_data, STELLAR_PRESETS, MISSION_PRESETS, LIT_PRESETS, HZ_PRESETS, PLANET_PRESETS
+    df = load_data("path/to/confirmed.csv")
+    df_g = STELLAR_PRESETS['G-type Stars'](df)
+    df_hz = HZ_PRESETS['Conservative HZ (Kopparapu+)'](df)
+    df_se = PLANET_PRESETS['Super-Earths'](df)
 
 Author: S.WITTMANN & V.RAGNER
 Repository: https://github.com/SimonWtmn/Stage_CEA_Exoplanet
 """
 
 import pandas as pd
-from utils.filters import apply_filters
-
-# Load dataset
-# Note: Adjust path as needed for deployment or relative use
-df = pd.read_csv(
-    r"C:\Users\simon\OneDrive\Bureau\Stage\Dataset\Confirmed_Data.csv",
-    comment='#'
-)
-df.columns = df.columns.str.strip()
-
-df = apply_filters(df, st_rad_err=50)
+from pathlib import Path
+from typing import Union, Callable, Dict
+from .filters import apply_filters
 
 
 
+def load_data(path: Union[str, Path]) -> pd.DataFrame:
+    """
+    Load the confirmed exoplanet dataset from CSV.
+    """
+    p = Path(path)
+    df = pd.read_csv(p, comment='#')
+    df.columns = df.columns.str.strip()
+    return df
 
-# ------------------------ STELLAR TYPE PRESETS ------------------------
 
-def O_type(): return apply_filters(df, st_type="O")
-def B_type(): return apply_filters(df, st_type="B")
-def A_type(): return apply_filters(df, st_type="A")
-def F_type(): return apply_filters(df, st_type="F")
-def G_type(): return apply_filters(df, st_type="G")
-def K_type(): return apply_filters(df, st_type="K")
-def M_type(): return apply_filters(df, st_type="M")
-def L_type(): return apply_filters(df, st_type="L")
-def T_type(): return apply_filters(df, st_type="T")
 
-STELLAR_TYPE_PRESETS = {
-    "O": O_type,
-    "B": B_type,
-    "A": A_type,
-    "F": F_type,
-    "G": G_type,
-    "K": K_type,
-    "M": M_type,
-    "L": L_type,
-    "T": T_type,
+
+
+# ------------------------ Stellar Spectral Type Presets ------------------------
+STELLAR_PRESETS: Dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
+    f"{t}-type Stars": (lambda df, t=t: apply_filters(df, st_type=t))
+    for t in ['O', 'B', 'A', 'F', 'G', 'K', 'M']
 }
 
 
 
-# ------------------------ MISSION PRESETS ------------------------
 
-def filter_kepler(): return apply_filters(df, mission="Kepler")
-def filter_k2(): return apply_filters(df, mission="K2")
-def filter_tess(): return apply_filters(df, mission="Transiting Exoplanet Survey Satellite (TESS)")
-def filter_corot(): return apply_filters(df, mission="CoRoT")
-def filter_cheops(): return apply_filters(df, mission="CHaracterising ExOPlanets Satellite (CHEOPS)")
-def filter_jwst(): return apply_filters(df, mission="James Webb Space Telescope (JWST)")
-def filter_spitzer(): return apply_filters(df, mission="Spitzer Space Telescope")
-def filter_hubble(): return apply_filters(df, mission="Hubble Space Telescope")
-def filter_gaia(): return apply_filters(df, mission="European Space Agency (ESA) Gaia Satellite")
-def filter_wise(): return apply_filters(df, mission="Wide-field Infrared Survey Explorer (WISE) Sat")
 
-MISSION_PRESETS = {
-    "Kepler": filter_kepler,
-    "K2": filter_k2,
-    "TESS": filter_tess,
-    "CoRoT": filter_corot,
-    "CHEOPS": filter_cheops,
-    "JWST": filter_jwst,
-    "Spitzer": filter_spitzer,
-    "Hubble": filter_hubble,
-    "Gaia": filter_gaia,
-    "WISE": filter_wise,
+# ------------------------ Survey Mission Presets ------------------------
+MISSION_PRESETS: Dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
+    'Kepler Mission':    (lambda df: apply_filters(df, mission='Kepler')),
+    'K2 Campaign':       (lambda df: apply_filters(df, mission='K2')),
+    'TESS Survey':       (lambda df: apply_filters(df, mission='Transiting Exoplanet Survey Satellite (TESS)')),
+    'CoRoT Survey':      (lambda df: apply_filters(df, mission='CoRoT')),
+    'CHEOPS Mission':    (lambda df: apply_filters(df, mission='CHaracterising ExOPlanets Satellite (CHEOPS)')),
+    'JWST Observations': (lambda df: apply_filters(df, mission='James Webb Space Telescope (JWST)')),
+    'Spitzer Archive':   (lambda df: apply_filters(df, mission='Spitzer Space Telescope')),
+    'Hubble Archive':    (lambda df: apply_filters(df, mission='Hubble Space Telescope')),
+    'Gaia Crossmatch':   (lambda df: apply_filters(df, mission='European Space Agency (ESA) Gaia Satellite')),
+    'WISE Survey':       (lambda df: apply_filters(df, mission='Wide-field Infrared Survey Explorer (WISE)'))
 }
 
 
 
-# ------------------------ PAPER PRESETS ------------------------
 
-def Fulton_2017_full_data():
+
+# ------------------------ Literature Sample Presets ------------------------
+
+def fulton2017_full(df: pd.DataFrame) -> pd.DataFrame:
     return apply_filters(
         df,
-        mission='Kepler', date_max=2017,
-        Teff_min=4700, Teff_max=6500,
+        mission='Kepler',
+        date_max=2017,
+        teff_min=4700,
+        teff_max=6500
     )
 
-def Fulton_2017():
+
+def fulton2017_gap(df: pd.DataFrame) -> pd.DataFrame:
     return apply_filters(
         df,
-        mission='Kepler', date_max=2017, kp=14.2,
-        Teff_min=4700, Teff_max=6500, Fulton_2017=True, st_rad_max=2,
-        b=0.7, rade_max=5
+        mission='Kepler',
+        date_max=2017,
+        kp_max=14.2,
+        teff_min=4700,
+        teff_max=6500,
+        use_fulton_filter=True,
+        st_rad_max=2,
+        impact_param_max=0.7,
+        rade_max=5
     )
 
-def Luque_Paille_2022():
+
+def luque_palle2022_m_dwarfs(df: pd.DataFrame) -> pd.DataFrame:
     return apply_filters(
         df,
         date_max=2022,
         st_type='M',
-        rade_max=4, rade_err=0.08,
-        mass_max=20, mass_err=0.25
+        rade_max=4,
+        rade_err=0.08,
+        mass_max=20,
+        mass_err=0.25
     )
 
-PAPER_PRESETS = {
-    "Fulton_2017_full_data": Fulton_2017_full_data,
-    "Fulton_2017": Fulton_2017,
-    "Luque_Paille_2022": Luque_Paille_2022,
+
+
+LIT_PRESETS: Dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
+    'Fulton et al. (2017) Full Sample': fulton2017_full,
+    'Fulton et al. (2017) Radius Gap':  fulton2017_gap,
+    'Luque & Pallé (2022) M-dwarfs':   luque_palle2022_m_dwarfs,
 }
 
 
 
-# ------------------------ CUSTOM USER PRESET ------------------------
-# This function acts as a placeholder that users can modify in main.py
+
+
+# ------------------------ Habitable Zone Presets ------------------------
+
+def conservative_hz(df: pd.DataFrame) -> pd.DataFrame:
+    subset = apply_filters(df, rade_max=1.5)
+    return subset[subset['pl_insol'].between(0.356, 1.11)].reset_index(drop=True)
+
+
+def optimistic_hz(df: pd.DataFrame) -> pd.DataFrame:
+    subset = apply_filters(df, rade_max=2.0)
+    return subset[subset['pl_insol'].between(0.22, 1.90)].reset_index(drop=True)
+
+
+
+HZ_PRESETS: Dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
+    'Conservative HZ (Kopparapu+)': conservative_hz,
+    'Optimistic HZ (Kopparapu+)':  optimistic_hz,
+}
+
+
+
+
+
+# ------------------------ Planetary Category Presets ------------------------
+
+def super_earths(df: pd.DataFrame) -> pd.DataFrame:
+    return apply_filters(df, rade_min=1.0, rade_max=2.0)
+
+
+def mini_neptunes(df: pd.DataFrame) -> pd.DataFrame:
+    return apply_filters(df, rade_min=2.0, rade_max=4.0)
+
+def gas_giants(df: pd.DataFrame) -> pd.DataFrame:
+    return apply_filters(df, rade_min=4.0)
+
+def hot_jupiters(df: pd.DataFrame) -> pd.DataFrame:
+    return apply_filters(df, rade_min=6.0, period_max=10)
+
+def multi_planet_systems(df: pd.DataFrame) -> pd.DataFrame:
+    return apply_filters(df, multiplicity_min=2)
+
+def high_density_planets(df: pd.DataFrame) -> pd.DataFrame:
+    return apply_filters(df, density_min=5.0)
+
+def low_density_planets(df: pd.DataFrame) -> pd.DataFrame:
+
+    return apply_filters(df, density_max=1.0)
+
+
+
+PLANET_PRESETS: Dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
+    'Super-Earths':           super_earths,
+    'Mini-Neptunes':          mini_neptunes,
+    'Gas Giants':             gas_giants,
+    'Hot Jupiters':           hot_jupiters,
+    'Multi-planet Systems':   multi_planet_systems,
+    'High-Density Planets':   high_density_planets,
+    'Low-Density Planets':    low_density_planets,
+}
+
+
+
+
+
+# ------------------------ Custom User Preset ------------------------
 
 def custom_user_preset(
-    mission=None,
-    st_type=None,
-    Teff_min=4500, Teff_max=6500,
-    rade_max=None,
-    mass_err=None,
-    density_min=None
-):
-    return apply_filters(
-        df,
-        mission=mission,
-        st_type=st_type,
-        Teff_min=Teff_min,
-        Teff_max=Teff_max,
-        rade_max=rade_max,
-        mass_err=mass_err,
-        density_min=density_min
-    )
+    df: pd.DataFrame,
+    **kwargs
+) -> pd.DataFrame:
+    """
+    Create a bespoke filter by passing any arguments through to `apply_filters()`.
+    E.g., `custom_user_preset(df, mission='TESS', rade_max=2.5)`.
+    """
+    return apply_filters(df, **kwargs)
 
-USER_PRESET = {
-    "Custom": custom_user_preset
+CUSTOM_PRESETS: Dict[str, Callable[..., pd.DataFrame]] = {
+    'Custom Selection': custom_user_preset
 }

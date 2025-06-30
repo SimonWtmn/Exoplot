@@ -1,228 +1,229 @@
 """
-Exoplanet Visualization Utilities
----------------------------------
-This module provides plotting functions to visualize planetary and
-stellar parameters from the NEA dataset.
+Exoplanet Plotting Utilities
+----------------------------
+Provides interactive plotting functions for visualizing exoplanet datasets, 
+including scatter, density, and colored plots.
 
-Functions:
-    - plot_sample: Scatter plot of all vs. filtered samples with optional highlight and error bars.
-    - mass_radius_plot: Mass vs. radius plot colored by a third parameter.
-    - histogram_by_feature: 1D histogram with optional hue variable (continuous or categorical).
-    - plot_2d_density: Density map of planet occurrence with 2D binning and optional uncertainties.
-
-Author: S.WITTMANN & V.RAGNER
+Author: S.WITTMANN
 Repository: https://github.com/SimonWtmn/Stage_CEA_Exoplanet
 """
 
-import inspect
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib.colors as colors
-from matplotlib.ticker import ScalarFormatter
-import seaborn as sns
+import pandas as pd
 import numpy as np
-from utils.label import label_map
-import itertools
+import plotly.graph_objects as go
+import plotly.express as px
 
+from .label import label_map
+from .presets import *
 
-# ------------------ Main Scatter Plot ------------------
+# ---------------------------------- Presets and Globals ----------------------------------
 
-def plot_sample(sample_list, x_axis, y_axis, highlight_planet=None, log_x=False, log_y=False):
-    """Scatter plot comparing full vs. filtered sample with optional highlighted planet and error bars."""
-    fig, ax = plt.subplots(figsize=(10, 6))
+PRESET_GROUPS = [STELLAR_PRESETS, MISSION_PRESETS, LIT_PRESETS, HZ_PRESETS, PLANET_PRESETS]
+ALL_PRESETS = {k: v for group in PRESET_GROUPS for k, v in group.items()}
 
-    # Get variable names from the caller's scope for legend use
-    caller_vars = inspect.currentframe().f_back.f_locals
-    name_lookup = {id(val): name for name, val in caller_vars.items() if hasattr(val, 'shape')}
+# ---------------------------------- Utility Functions ----------------------------------
 
-    markers = itertools.cycle(['o', 's', 'D', '^', 'v', 'P', 'X'])
-    colors = itertools.cycle(sns.color_palette("tab10"))
+def combine_samples(samples):
+    if isinstance(samples, dict):
+        samples = samples.items()
+    elif samples and not isinstance(samples[0], tuple):
+        samples = [(f"Sample {i+1}", df) for i, df in enumerate(samples)]
+    return pd.concat([df.assign(source=label) for label, df in samples], ignore_index=True)
 
-    for df in sample_list:
-        if df.empty:
-            continue
+def prepare_labels(*keys):
+    return {k: label_map.get(k, k) for k in keys}
 
-        label = name_lookup.get(id(df), "Unknown Sample").replace("_sample", "")
+def get_error_columns(df, x, y, show_error):
+    return (
+        f"{x}err1" if show_error and f"{x}err1" in df else None,
+        f"{y}err1" if show_error and f"{y}err1" in df else None
+    )
 
-        ax.errorbar(
-            df[x_axis], df[y_axis],
-            xerr=df.get(f"{x_axis}err1", None),
-            yerr=df.get(f"{y_axis}err1", None),
-            fmt=next(markers),
-            color=next(colors),
-            label=label,
-            linestyle='None',
-            markersize=5,
-            alpha=0.8,
-            zorder=2
+# ---------------------------------- Trace Adders ----------------------------------
+
+def add_highlight_traces(fig, df, x, y, highlight):
+    if not highlight:
+        return
+    for planet in highlight:
+        hp = df[df['pl_name'] == planet]
+        if not hp.empty:
+            fig.add_trace(go.Scatter(
+                x=hp[x], y=hp[y], mode='markers+text', text=[planet]*len(hp),
+                textposition='top center', name=planet,
+                marker=dict(symbol='star', size=14, color='red', line=dict(width=1, color='black')),
+                customdata=hp[['pl_name', 'source']],
+                hovertemplate="%{text}<extra></extra>"
+            ))
+
+def add_scatter_trace(fig, group, x, y, label_x, label_y,
+                      name=None, color=None, err_x=None, err_y=None, marker_extra=None):
+    marker = dict(opacity=0.8)
+    if color is not None and (not marker_extra or 'color' not in marker_extra):
+        marker['color'] = color
+    if marker_extra:
+        marker.update(marker_extra)
+    fig.add_trace(go.Scatter(
+        x=group[x], y=group[y], mode='markers', name=name or group.get('source', 'Sample'),
+        text=group['pl_name'], marker=marker,
+        error_x=dict(array=group[err_x]) if err_x else None,
+        error_y=dict(array=group[err_y]) if err_y else None,
+        customdata=group[['pl_name', 'source']],
+        hovertemplate=f"%{{text}}<br>{label_x} = %{{x}}<br>{label_y} = %{{y}}<extra></extra>"
+    ))
+
+# ---------------------------------- Plot Functions ----------------------------------
+
+def plot_scatter(df, x, y, highlight=None, log_x=False, log_y=False, show_error=False):
+    labels = prepare_labels(x, y)
+    labels.update({'source': 'Dataset', 'pl_name': 'Planet'})
+    err_x, err_y = get_error_columns(df, x, y, show_error)
+    fig, base_df = go.Figure(), df if not highlight else df[~df['pl_name'].isin(highlight)]
+    for src, group in base_df.groupby('source'):
+        add_scatter_trace(fig, group, x, y, labels[x], labels[y], name=src, err_x=err_x, err_y=err_y)
+    add_highlight_traces(fig, df, x, y, highlight)
+    fig.update_layout(
+        legend_traceorder='normal',
+        xaxis=dict(title=labels[x], type='log' if log_x else 'linear'),
+        yaxis=dict(title=labels[y], type='log' if log_y else 'linear'),
+        title=f"{labels[y]} vs {labels[x]}",
+        margin=dict(l=60, r=20, t=40, b=60),
+        template='plotly_white',
+        height=800
+    )
+    return fig
+
+def plot_colored(df, x, y, color_by, highlight=None, log_x=False, log_y=False, show_error=False, colorscale_list=None):
+    labels = prepare_labels(x, y, color_by)
+    labels.update({'source': 'Dataset', 'pl_name': 'Planet'})
+    palettes = colorscale_list or ['YlOrRd', 'Blues', 'Greens', 'Purples', 'Oranges', 'Viridis']
+    vmin, vmax = df[color_by].min(), df[color_by].max()
+    err_x, err_y = get_error_columns(df, x, y, show_error)
+    fig, base_df = go.Figure(), df if not highlight else df[~df['pl_name'].isin(highlight)]
+
+    for i, (src, group) in enumerate(base_df.groupby('source')):
+        fig.add_trace(go.Scatter(
+            x=group[x], y=group[y], mode='markers', name=src, text=group['pl_name'],
+            marker=dict(color=group[color_by], colorscale=palettes[i % len(palettes)],
+                        cmin=vmin, cmax=vmax, showscale=True,
+                        colorbar=dict(x=1.02 + i * 0.08, y=0.4, len=0.6, thickness=12)),
+            error_x=dict(array=group[err_x]) if err_x else None,
+            error_y=dict(array=group[err_y]) if err_y else None,
+            hovertemplate=f"%{{text}}<br>{labels[x]} = %{{x}}<br>{labels[y]} = %{{y}}<br>{labels[color_by]} = %{{marker.color}}<extra></extra>"
+        ))
+        fig.add_annotation(x=1.02 + i * 0.08 + 0.02, y=0.1, text=src, xref='paper', yref='paper',
+                           showarrow=False, xanchor='center', yanchor='top', font=dict(size=12))
+
+    if base_df['source'].nunique():
+        fig.add_annotation(
+            x=1.02 + (len(base_df['source'].unique()) - 1) * 0.08 / 1.6, y=0.05,
+            text=labels[color_by], xref='paper', yref='paper',
+            showarrow=False, xanchor='center', yanchor='top', font=dict(size=12)
         )
 
-        if highlight_planet and highlight_planet in df['pl_name'].values:
-            df_highlight = df[df['pl_name'] == highlight_planet]
-            ax.scatter(
-                df_highlight[x_axis], df_highlight[y_axis],
-                c='red', edgecolors='black', s=90, marker='*', zorder=4,
-                label=f"Highlighted: {highlight_planet}"
-            )
-
-    if log_x:
-        ax.set_xscale('log')
-    if log_y:
-        ax.set_yscale('log')
-        ax.yaxis.set_major_formatter(ScalarFormatter())
-
-    if "teff" in x_axis or "temp" in x_axis:
-        ax.invert_xaxis()
-
-    ax.set_xlabel(label_map.get(x_axis, x_axis))
-    ax.set_ylabel(label_map.get(y_axis, y_axis))
-    ax.legend()
-    plt.tight_layout()
-    plt.show()
-
-
-# ------------------ Mass-Radius Plot ------------------
-
-def mass_radius_plot(df, yaxis="pl_bmasse", color_by="st_teff", log_x=True, log_y=True):
-    """Mass-radius scatter plot with optional color map based on a third variable."""
-    if color_by not in df.columns:
-        raise ValueError(f"Column '{color_by}' not found in dataframe.")
-
-    if df.empty:
-        print("No valid data for plotting.")
-        return
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    # Color mapping setup
-    cmap = cm.get_cmap("viridis")
-    norm = colors.Normalize(vmin=df[color_by].min(), vmax=df[color_by].max())
-
-    # Base scatter with color mapping
-    sc = ax.scatter(
-        df["pl_rade"], df[yaxis],
-        c=df[color_by],
-        cmap=cmap,
-        norm=norm,
-        s=40,
-        edgecolor='k',
-        alpha=0.8,
-        zorder=2
+    add_highlight_traces(fig, df, x, y, highlight)
+    fig.update_layout(
+        legend_traceorder='normal',
+        xaxis=dict(title=labels[x], type='log' if log_x else 'linear'),
+        yaxis=dict(title=labels[y], type='log' if log_y else 'linear'),
+        title=f"{labels[x]} vs {labels[y]} (colored by {labels[color_by]})",
+        margin=dict(l=60, r=100, t=60, b=100),
+        template='plotly_white',
+        height=800
     )
+    return fig
 
-    # Overlay error bars (uniform color for clarity)
-    ax.errorbar(
-        df["pl_rade"], df[yaxis],
-        xerr=df.get("pl_radeerr1", None),
-        yerr=df.get(yaxis + "err1", None),
-        fmt='none',
-        ecolor='gray',
-        alpha=0.5,
-        zorder=1
-    )
+def plot_density(df, x, y, highlight=None, log_x=False, log_y=False, show_error=False, cmap='YlOrBr'):
+    labels = prepare_labels(x, y)
+    labels.update({'source': 'Dataset', 'pl_name': 'Planet'})
+    err_x, err_y = get_error_columns(df, x, y, show_error)
+    cols = [x, y, 'pl_name', 'source'] + [c for c in (err_x, err_y) if c]
+    df = df[cols].replace([np.inf, -np.inf], np.nan).dropna(subset=[x, y])
 
     if log_x:
-        ax.set_xscale('log')
+        df = df[df[x] > 0].copy(); df[x] = np.log10(df[x])
     if log_y:
-        ax.set_yscale('log')
-        ax.yaxis.set_major_formatter(ScalarFormatter())
+        df = df[df[y] > 0].copy(); df[y] = np.log10(df[y])
 
-    ax.set_xlabel(label_map.get("pl_rade", "pl_rade"))
-    ax.set_ylabel(label_map.get(yaxis, yaxis))
+    fig = go.Figure()
+    if len(df) >= 10:
+        fig.add_trace(go.Histogram2dContour(
+            x=df[x], y=df[y], colorscale=cmap,
+            contours=dict(coloring='fill', showlines=False),
+            showscale=True, colorbar=dict(title='Density', x=1.02, y=0.5, len=0.6, thickness=12),
+            hoverinfo='skip', name='Density', opacity=0.5
+        ))
 
-    cbar = plt.colorbar(sc, ax=ax)
-    cbar.set_label(label_map.get(color_by, color_by))
+    palette = px.colors.qualitative.Plotly
+    base_df = df if not highlight else df[~df['pl_name'].isin(highlight)]
+    for i, (src, group) in enumerate(base_df.groupby('source')):
+        add_scatter_trace(fig, group, x, y, labels[x], labels[y], name=src,
+                          color=palette[i % len(palette)], err_x=err_x, err_y=err_y)
+    add_highlight_traces(fig, df, x, y, highlight)
 
-    plt.tight_layout()
-    plt.show()
+    def log_ticks(series, enabled):
+        if not enabled: return None, None
+        exponents = range(int(np.floor(series.min())), int(np.ceil(series.max())) + 1)
+        return list(exponents), [f"10<sup>{e}</sup>" for e in exponents]
 
+    xticks, xticklabels = log_ticks(df[x], log_x)
+    yticks, yticklabels = log_ticks(df[y], log_y)
 
-# ------------------ Histogram Plot ------------------
-
-def histogram_by_feature(df, x_axis, hue=None, bins=30, log_x=False):
-    """Histogram with optional grouping hue variable (categorical or continuous)."""
-
-    # Track original hue (for labeling) and plotting hue (actual data column used)
-    original_hue = hue
-    plot_hue = hue
-
-    # Special case: simplify spectral type
-    if hue == "st_spectype":
-        df = df.copy()
-        df["st_spectype_simple"] = df["st_spectype"].astype(str).str.strip().str.upper().str[0]
-        plot_hue = "st_spectype_simple"
-
-    # Drop rows with missing data
-    required_cols = [x_axis] + ([plot_hue] if plot_hue else [])
-    df_valid = df.dropna(subset=required_cols)
-    if df_valid.empty:
-        print("No data available for the specified columns.")
-        return
-
-    # Plot
-    plt.figure(figsize=(10, 6))
-    ax = sns.histplot(
-        data=df_valid,
-        x=x_axis,
-        hue=plot_hue,
-        bins=bins,
-        palette="muted",
-        multiple="stack" if plot_hue else "layer",
-        edgecolor="black"
+    fig.update_layout(
+        xaxis=dict(title=labels[x], tickvals=xticks, ticktext=xticklabels),
+        yaxis=dict(title=labels[y], tickvals=yticks, ticktext=yticklabels),
+        title=f"{labels[y]} vs {labels[x]} (with Occurrence Pattern)",
+        margin=dict(l=60, r=100, t=60, b=60),
+        template='plotly_white',
+        height=800
     )
+    return fig
 
-    # Apply log scale if needed
-    if log_x:
-        plt.xscale("log")
+# ---------------------------------- Main Dispatcher ----------------------------------
 
-    # Labels
-    plt.xlabel(label_map.get(x_axis, x_axis))
-    plt.ylabel("Count")
+def main_plot(plot_type, df_list=None, preset_keys=None, df_full=None,
+              x_axis=None, y_axis=None, highlight_planets=None,
+              color_by=None, log_x=False, log_y=False,
+              show_error=True, cmap='YlOrBr', show_points=True):
 
-    # Legend fix — always use original hue to fetch human-readable label
-    if hue:
-        title = label_map.get(original_hue, original_hue)
-        legend = ax.get_legend()
-        if legend:
-            legend.set_title(title)
+    if preset_keys:
+        if df_full is None:
+            raise ValueError("`df_full` is required when using `preset_keys`")
+        if isinstance(df_full, str):
+            df_full = ALL_DATA.get(df_full)
+            if df_full is None:
+                raise KeyError(f"No data named '{df_full}' in ALL_DATA")
 
-    plt.tight_layout()
-    plt.show()
+        df_list = []
+        for key in preset_keys:
+            if key in ALL_PRESETS:
+                df_list.append((key, ALL_PRESETS[key](df_full)))
+            elif key in ALL_DATA:
+                df_list.append((key, ALL_DATA[key]))
+            else:
+                raise KeyError(f"No such presets or data: {key}")
 
+    if df_list is None:
+        raise ValueError("Either `df_list` or `preset_keys` must be provided.")
 
+    df = combine_samples(df_list)
+    if 'pl_name' not in df.columns:
+        raise KeyError("Combined DataFrame must contain a 'pl_name' column.")
 
+    if highlight_planets:
+        missing = [p for p in highlight_planets if p not in df['pl_name'].values]
+        if missing:
+            print(f"⚠️ Planets not found: {', '.join(missing)}")
 
+    plot_funcs = {'scatter': plot_scatter, 'colored': plot_colored, 'density': plot_density}
+    if plot_type not in plot_funcs:
+        raise ValueError(f"Unknown plot_type: {plot_type}")
 
-# ------------------ 2D Density Plot ------------------
+    kwargs = dict(df=df, x=x_axis, y=y_axis, highlight=highlight_planets,
+                  log_x=log_x, log_y=log_y, show_error=show_error)
+    if plot_type == 'colored':
+        kwargs.update(color_by=color_by)
+    elif plot_type == 'density':
+        kwargs.update(cmap=cmap)
 
-def plot_2d_density(df, x_axis, y_axis="pl_rade", bins=50, cmap="YlOrBr", log_x=False, log_y=False, add_uncertainty=False):
-    """2D density map showing relative occurrence of planets with optional uncertainties."""
-    df_valid = df[[x_axis, y_axis]].dropna()
-    if df_valid.empty:
-        print("No valid data to plot.")
-        return
-
-    x = df_valid[x_axis]
-    y = df_valid[y_axis]
-    hist, xedges, yedges = np.histogram2d(x, y, bins=bins, density=True)
-
-    fig, ax = plt.subplots(figsize=(8, 6))
-    pcm = ax.pcolormesh(xedges, yedges, hist.T, cmap=cmap)
-    plt.colorbar(pcm, ax=ax, label="Relative Density of Planets")
-    ax.scatter(x, y, s=8, c='black', edgecolors='white', linewidths=0.3, alpha=0.7)
-
-    if log_x:
-        ax.set_xscale("log")
-    if log_y:
-        ax.set_yscale("log")
-
-    if add_uncertainty:
-        ax.errorbar(0.7, 2.5, xerr=0.05, yerr=0.2,
-                    fmt='o', color='black', capsize=3, markersize=0)
-        ax.text(0.82, 2.9, 'typical\nuncert.', fontsize=9)
-
-    ax.set_xlabel(label_map.get(x_axis, x_axis))
-    ax.set_ylabel(label_map.get(y_axis, y_axis))
-    plt.tight_layout()
-    plt.show()
-
+    fig = plot_funcs[plot_type](**kwargs)
+    fig.show()

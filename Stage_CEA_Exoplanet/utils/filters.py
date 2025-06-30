@@ -1,18 +1,9 @@
 """
 Planetary and Stellar Dataset Filtering Module
 -----------------------------------------------
-This module provides a single entry-point function `apply_filters()` for filtering confirmed exoplanets from the NASA Exoplanet Archive dataset.
+Provides a single entry-point function `apply_filters()` for filtering confirmed exoplanets from the NASA Exoplanet Archive dataset.
 
-Users can apply discovery, stellar, planetary, and system filters in any combination to explore subsets of the exoplanet catalog.
-
-Usage:
-    from utils.filters import apply_filters
-    df_filtered = apply_filters(
-        df,
-        mission='Kepler', Teff_min=4000, rade_max=2, density_min=5
-    )
-
-Author: S.WITTMANN & V.RAGNER
+Author: S.WITTMANN
 Repository: https://github.com/SimonWtmn/Stage_CEA_Exoplanet
 """
 
@@ -92,10 +83,12 @@ def apply_filters(
         mask &= df['disc_facility'].notna() & (df['disc_facility'] == mission)
     if discovery_method is not None:
         mask &= df['discoverymethod'].notna() & (df['discoverymethod'] == discovery_method)
+
     if date_min is not None:
         mask &= df['disc_year'].notna() & (df['disc_year'] >= date_min)
     if date_max is not None:
         mask &= df['disc_year'].notna() & (df['disc_year'] <= date_max)
+        
     if kp_max is not None:
         mask &= df['sy_kepmag'].notna() & (df['sy_kepmag'] <= kp_max)
 

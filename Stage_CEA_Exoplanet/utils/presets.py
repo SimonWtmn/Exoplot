@@ -1,17 +1,9 @@
 """
 Presets for Filtering Exoplanet Dataset
 ----------------------------------------
+Provides predefined filtering presets for common exoplanet research use-cases.
 
-This module provides predefined filtering presets for common exoplanet research use-cases.
-
-Usage:
-    from utils.presets import load_data, STELLAR_PRESETS, MISSION_PRESETS, LIT_PRESETS, HZ_PRESETS, PLANET_PRESETS
-    df = load_data("path/to/confirmed.csv")
-    df_g = STELLAR_PRESETS['G-type Stars'](df)
-    df_hz = HZ_PRESETS['Conservative HZ (Kopparapu+)'](df)
-    df_se = PLANET_PRESETS['Super-Earths'](df)
-
-Author: S.WITTMANN & V.RAGNER
+Author: S.WITTMANN
 Repository: https://github.com/SimonWtmn/Stage_CEA_Exoplanet
 """
 
@@ -32,12 +24,15 @@ def load_data(path: Union[str, Path]) -> pd.DataFrame:
     return df
 
 
+ALL_DATA = {
+    'NEA': load_data(r"C:\Users\simon\OneDrive\Bureau\Stage\Dataset\Confirmed_Data.csv")
+}
 
 
 
 # ------------------------ Stellar Spectral Type Presets ------------------------
 STELLAR_PRESETS: Dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
-    f"{t}-type Stars": (lambda df, t=t: apply_filters(df, st_type=t))
+    f"{t}-type": (lambda df, t=t: apply_filters(df, st_type=t))
     for t in ['O', 'B', 'A', 'F', 'G', 'K', 'M']
 }
 

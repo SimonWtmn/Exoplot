@@ -178,32 +178,78 @@ def plot_density(df, x, y, highlight=None, log_x=False, log_y=False, show_error=
     )
     return fig
 
+
+# ---------------------------------- Histogram Plot ----------------------------------
+
+def plot_histogram(df, column, by=None, bins=None, log_x=False, log_y=False):
+    labels = prepare_labels(column, by) if by else prepare_labels(column)
+    labels.update({'source': 'Dataset', 'pl_name': 'Planet'})
+    palette = px.colors.qualitative.Plotly
+
+    data = df[[column] + ([by] if by else [])].replace([np.inf, -np.inf], np.nan).dropna(subset=[column])
+
+    fig = go.Figure()
+    if by and by in data.columns:
+        for i, (name, group) in enumerate(data.groupby(by)):
+            fig.add_trace(go.Histogram(
+                x=group[column], name=str(name),
+                opacity=0.75, 
+                marker=dict(
+                    color=palette[i % len(palette)],
+                    line=dict(color='black', width=1)
+                ),
+                nbinsx=bins,
+                hovertemplate=f"{labels[by]}: {name}<br>{labels[column]}: %{{x}}<br>Count: %{{y}}<extra></extra>"
+            ))
+        barmode = 'stack'
+    else:
+        fig.add_trace(go.Histogram(
+            x=data[column],
+            nbinsx=bins,
+            marker=dict(
+                color=palette[0],
+                line=dict(color='black', width=1)
+            ),
+            hovertemplate=f"{labels[column]}: %{{x}}<br>Count: %{{y}}<extra></extra>"
+        ))
+        barmode = 'relative'
+
+    fig.update_layout(
+        barmode=barmode,
+        title=f"Histogram of {labels[column]}" + (f" by {labels[by]}" if by else ''),
+        xaxis=dict(title=labels[column], type='log' if log_x else 'linear'),
+        yaxis=dict(title='Count'),
+        margin=dict(l=60, r=60, t=60, b=60),
+        template='plotly_white',
+        height=600
+    )
+    
+    return fig
+
+
+
 # ---------------------------------- Main Dispatcher ----------------------------------
 
-def main_plot(plot_type, df_list=None, preset_keys=None, df_full=None,
+def main_plot(plot_type, preset_keys=None, df_full=None,
               x_axis=None, y_axis=None, highlight_planets=None,
               color_by=None, log_x=False, log_y=False,
-              show_error=True, cmap='YlOrBr', show_points=True):
-
-    if preset_keys:
+              show_error=True, cmap='YlOrBr', show_points=True, bins=None):
+    # Load data if using presets
+    if df_full is None:
+        raise ValueError("`df_full` is required when using `preset_keys`")
+    if isinstance(df_full, str):
+        df_full = ALL_DATA.get(df_full)
         if df_full is None:
-            raise ValueError("`df_full` is required when using `preset_keys`")
-        if isinstance(df_full, str):
-            df_full = ALL_DATA.get(df_full)
-            if df_full is None:
-                raise KeyError(f"No data named '{df_full}' in ALL_DATA")
+            raise KeyError(f"No data named '{df_full}' in ALL_DATA")
 
-        df_list = []
-        for key in preset_keys:
-            if key in ALL_PRESETS:
-                df_list.append((key, ALL_PRESETS[key](df_full)))
-            elif key in ALL_DATA:
-                df_list.append((key, ALL_DATA[key]))
-            else:
-                raise KeyError(f"No such presets or data: {key}")
-
-    if df_list is None:
-        raise ValueError("Either `df_list` or `preset_keys` must be provided.")
+    df_list = []
+    for key in preset_keys:
+        if key in ALL_PRESETS:
+            df_list.append((key, ALL_PRESETS[key](df_full)))
+        elif key in ALL_DATA:
+            df_list.append((key, ALL_DATA[key]))
+        else:
+            raise KeyError(f"No such presets or data: {key}")
 
     df = combine_samples(df_list)
     if 'pl_name' not in df.columns:
@@ -214,16 +260,32 @@ def main_plot(plot_type, df_list=None, preset_keys=None, df_full=None,
         if missing:
             print(f"⚠️ Planets not found: {', '.join(missing)}")
 
-    plot_funcs = {'scatter': plot_scatter, 'colored': plot_colored, 'density': plot_density}
+    # Supported plot functions
+    plot_funcs = {
+        'scatter': plot_scatter,
+        'colored': plot_colored,
+        'density': plot_density,
+        'histogram': plot_histogram
+    }
+
     if plot_type not in plot_funcs:
         raise ValueError(f"Unknown plot_type: {plot_type}")
 
-    kwargs = dict(df=df, x=x_axis, y=y_axis, highlight=highlight_planets,
-                  log_x=log_x, log_y=log_y, show_error=show_error)
+    # Prepare arguments per plot type
     if plot_type == 'colored':
-        kwargs.update(color_by=color_by)
+        kwargs = dict(df=df, x=x_axis, y=y_axis, highlight=highlight_planets,
+                      log_x=log_x, log_y=log_y, show_error=show_error, color_by=color_by)
     elif plot_type == 'density':
-        kwargs.update(cmap=cmap)
+        kwargs = dict(df=df, x=x_axis, y=y_axis, highlight=highlight_planets,
+                      log_x=log_x, log_y=log_y, show_error=show_error, cmap=cmap)
+    elif plot_type == 'histogram':
+        kwargs = dict(df=df, column=x_axis, by=color_by,
+                      log_x=log_x, log_y=log_y, bins=bins)
+    else:  # 'scatter'
+        kwargs = dict(df=df, x=x_axis, y=y_axis, highlight=highlight_planets,
+                      log_x=log_x, log_y=log_y, show_error=show_error)
 
     fig = plot_funcs[plot_type](**kwargs)
     fig.show()
+
+

@@ -26,6 +26,7 @@ label_map = {
     "st_spectype":   "Spectral Type",
 
     # -------- System Parameters --------
+    "disc_facility": "Mission",
     "sy_dist":       "System Distance (pc)",
     "sy_vmag":       "Apparent Magnitude (V)",
     "sy_kmag":       "Apparent Magnitude (K)",

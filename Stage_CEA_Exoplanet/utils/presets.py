@@ -158,13 +158,13 @@ def low_density_planets(df: pd.DataFrame) -> pd.DataFrame:
 
 
 PLANET_PRESETS: Dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
-    'Super-Earths':           super_earths,
-    'Mini-Neptunes':          mini_neptunes,
-    'Gas Giants':             gas_giants,
-    'Hot Jupiters':           hot_jupiters,
-    'Multi-planet Systems':   multi_planet_systems,
-    'High-Density Planets':   high_density_planets,
-    'Low-Density Planets':    low_density_planets,
+    'Super Earth':           super_earths,
+    'Mini Neptune':          mini_neptunes,
+    'Gas Giant':             gas_giants,
+    'Hot Jupiter':           hot_jupiters,
+    'Multi planet Systems':   multi_planet_systems,
+    'High Density Planets':   high_density_planets,
+    'Low Density Planets':    low_density_planets,
 }
 
 

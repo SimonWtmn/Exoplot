@@ -1,13 +1,3 @@
-"""
-Exoplanet Plotting Utilities
-----------------------------
-Provides interactive plotting functions for visualizing exoplanet datasets, 
-including scatter, density, and colored plots.
-
-Author: S.WITTMANN
-Repository: https://github.com/SimonWtmn/Stage_CEA_Exoplanet
-"""
-
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -15,13 +5,10 @@ import plotly.express as px
 
 from .label import label_map
 from .presets import *
-
-# ---------------------------------- Presets and Globals ----------------------------------
+from .models import get_model_curve
 
 PRESET_GROUPS = [STELLAR_PRESETS, MISSION_PRESETS, LIT_PRESETS, HZ_PRESETS, PLANET_PRESETS]
 ALL_PRESETS = {k: v for group in PRESET_GROUPS for k, v in group.items()}
-
-# ---------------------------------- Utility Functions ----------------------------------
 
 def combine_samples(samples):
     if isinstance(samples, dict):
@@ -38,8 +25,6 @@ def get_error_columns(df, x, y, show_error):
         f"{x}err1" if show_error and f"{x}err1" in df else None,
         f"{y}err1" if show_error and f"{y}err1" in df else None
     )
-
-# ---------------------------------- Trace Adders ----------------------------------
 
 def add_highlight_traces(fig, df, x, y, highlight):
     if not highlight:
@@ -71,16 +56,47 @@ def add_scatter_trace(fig, group, x, y, label_x, label_y,
         hovertemplate=f"%{{text}}<br>{label_x} = %{{x}}<br>{label_y} = %{{y}}<extra></extra>"
     ))
 
-# ---------------------------------- Plot Functions ----------------------------------
+def add_model_overlay_traces(fig, x, y, overlay_models):
+    if not overlay_models:
+        return
 
-def plot_scatter(df, x, y, highlight=None, log_x=False, log_y=False, show_error=False):
+    valid_axes = {("pl_bmasse", "pl_rade"), ("pl_rade", "pl_bmasse")}
+    if (x, y) not in valid_axes and (y, x) not in valid_axes:
+        raise ValueError(f"Model overlays are only valid for mass–radius plots (pl_bmasse vs pl_rade). Your axes: x='{x}', y='{y}'")
+
+    from plotly.colors import DEFAULT_PLOTLY_COLORS
+
+    for i, model_key in enumerate(overlay_models):
+        model_df = get_model_curve(model_key)
+        x_model = model_df['mass']
+        y_model = model_df['radius']
+        if x == "pl_rade":
+            x_model, y_model = y_model, x_model
+
+        fig.add_trace(go.Scatter(
+            x=x_model,
+            y=y_model,
+            mode='lines',
+            name=f"{model_key.replace('_', ' ').title()}",
+            line=dict(
+                dash='dash',
+                width=2,
+                color=DEFAULT_PLOTLY_COLORS[i % len(DEFAULT_PLOTLY_COLORS)]
+            )
+        ))
+
+def plot_scatter(df, x, y, highlight, log_x, log_y, show_error, overlay_models):
     labels = prepare_labels(x, y)
     labels.update({'source': 'Dataset', 'pl_name': 'Planet'})
     err_x, err_y = get_error_columns(df, x, y, show_error)
     fig, base_df = go.Figure(), df if not highlight else df[~df['pl_name'].isin(highlight)]
+
     for src, group in base_df.groupby('source'):
         add_scatter_trace(fig, group, x, y, labels[x], labels[y], name=src, err_x=err_x, err_y=err_y)
+
     add_highlight_traces(fig, df, x, y, highlight)
+    add_model_overlay_traces(fig, x, y, overlay_models)
+
     fig.update_layout(
         legend_traceorder='normal',
         xaxis=dict(title=labels[x], type='log' if log_x else 'linear'),
@@ -92,7 +108,7 @@ def plot_scatter(df, x, y, highlight=None, log_x=False, log_y=False, show_error=
     )
     return fig
 
-def plot_colored(df, x, y, color_by, highlight=None, log_x=False, log_y=False, show_error=False, colorscale_list=None):
+def plot_colored(df, x, y, color_by, highlight=None, log_x=False, log_y=False, show_error=False, colorscale_list=None, overlay_models=None):
     labels = prepare_labels(x, y, color_by)
     labels.update({'source': 'Dataset', 'pl_name': 'Planet'})
     palettes = colorscale_list or ['YlOrRd', 'Blues', 'Greens', 'Purples', 'Oranges', 'Viridis']
@@ -121,6 +137,8 @@ def plot_colored(df, x, y, color_by, highlight=None, log_x=False, log_y=False, s
         )
 
     add_highlight_traces(fig, df, x, y, highlight)
+    add_model_overlay_traces(fig, x, y, overlay_models)
+
     fig.update_layout(
         legend_traceorder='normal',
         xaxis=dict(title=labels[x], type='log' if log_x else 'linear'),
@@ -132,7 +150,7 @@ def plot_colored(df, x, y, color_by, highlight=None, log_x=False, log_y=False, s
     )
     return fig
 
-def plot_density(df, x, y, highlight=None, log_x=False, log_y=False, show_error=False, cmap='YlOrBr'):
+def plot_density(df, x, y, highlight=None, log_x=False, log_y=False, show_error=False, cmap='YlOrBr', overlay_models=None):
     labels = prepare_labels(x, y)
     labels.update({'source': 'Dataset', 'pl_name': 'Planet'})
     err_x, err_y = get_error_columns(df, x, y, show_error)
@@ -159,6 +177,7 @@ def plot_density(df, x, y, highlight=None, log_x=False, log_y=False, show_error=
         add_scatter_trace(fig, group, x, y, labels[x], labels[y], name=src,
                           color=palette[i % len(palette)], err_x=err_x, err_y=err_y)
     add_highlight_traces(fig, df, x, y, highlight)
+    add_model_overlay_traces(fig, x, y, overlay_models)
 
     def log_ticks(series, enabled):
         if not enabled: return None, None
@@ -177,9 +196,6 @@ def plot_density(df, x, y, highlight=None, log_x=False, log_y=False, show_error=
         height=800
     )
     return fig
-
-
-# ---------------------------------- Histogram Plot ----------------------------------
 
 def plot_histogram(df, column, by=None, bins=None, log_x=False, log_y=False):
     labels = prepare_labels(column, by) if by else prepare_labels(column)
@@ -223,18 +239,14 @@ def plot_histogram(df, column, by=None, bins=None, log_x=False, log_y=False):
         template='plotly_white',
         height=600
     )
-    
+
     return fig
-
-
-
-# ---------------------------------- Main Dispatcher ----------------------------------
 
 def main_plot(plot_type, preset_keys=None, df_full=None,
               x_axis=None, y_axis=None, highlight_planets=None,
               color_by=None, log_x=False, log_y=False,
-              show_error=True, cmap='YlOrBr', show_points=True, bins=None):
-    # Load data if using presets
+              show_error=False, cmap='YlOrBr', show_points=True, bins=None,
+              overlay_models=None):
     if df_full is None:
         raise ValueError("`df_full` is required when using `preset_keys`")
     if isinstance(df_full, str):
@@ -260,7 +272,6 @@ def main_plot(plot_type, preset_keys=None, df_full=None,
         if missing:
             print(f"⚠️ Planets not found: {', '.join(missing)}")
 
-    # Supported plot functions
     plot_funcs = {
         'scatter': plot_scatter,
         'colored': plot_colored,
@@ -271,21 +282,21 @@ def main_plot(plot_type, preset_keys=None, df_full=None,
     if plot_type not in plot_funcs:
         raise ValueError(f"Unknown plot_type: {plot_type}")
 
-    # Prepare arguments per plot type
     if plot_type == 'colored':
         kwargs = dict(df=df, x=x_axis, y=y_axis, highlight=highlight_planets,
-                      log_x=log_x, log_y=log_y, show_error=show_error, color_by=color_by)
+                      log_x=log_x, log_y=log_y, show_error=show_error, color_by=color_by,
+                      overlay_models=overlay_models)
     elif plot_type == 'density':
         kwargs = dict(df=df, x=x_axis, y=y_axis, highlight=highlight_planets,
-                      log_x=log_x, log_y=log_y, show_error=show_error, cmap=cmap)
+                      log_x=log_x, log_y=log_y, show_error=show_error, cmap=cmap,
+                      overlay_models=overlay_models)
     elif plot_type == 'histogram':
         kwargs = dict(df=df, column=x_axis, by=color_by,
                       log_x=log_x, log_y=log_y, bins=bins)
-    else:  # 'scatter'
+    else:
         kwargs = dict(df=df, x=x_axis, y=y_axis, highlight=highlight_planets,
-                      log_x=log_x, log_y=log_y, show_error=show_error)
+                      log_x=log_x, log_y=log_y, show_error=show_error,
+                      overlay_models=overlay_models)
 
     fig = plot_funcs[plot_type](**kwargs)
     fig.show()
-
-

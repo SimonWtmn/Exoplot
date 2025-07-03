@@ -12,7 +12,7 @@ from pathlib import Path
 
 MODELS_DIR = Path(__file__).parent / "theoretical_models"
 
-# Model key map: key => filename
+# -------- MODEL CATAGLOG : KEY ==> APADATED DF (SKETCH : ONLY ZENG MODELS) --------
 MODEL_CATALOG = {
     # --- Core Composition Models ---
     "zeng_rocky"              : ("zeng_2019_pure_rock",        "Zeng+2019: Pure Rock"),
@@ -72,7 +72,7 @@ MODEL_CATALOG = {
 
 # ------------------------------------- HELPER -------------------------------------
 
-# ------------ Trace ------------  -
+# // TRACE
 def get_model_curve(key: str) -> pd.DataFrame:
     if key not in MODEL_CATALOG:
         raise KeyError(f"Invalid model key '{key}'. Use list_models() to view available options.")
@@ -91,11 +91,11 @@ def get_model_curve(key: str) -> pd.DataFrame:
     return df.dropna()
 
 
-# ----------- Get List ------------
-def list_models() -> dict:
-    return MODEL_CATALOG
-
-
-# ----------- Get Label ----------- 
+# // GET LABEL FROM KEY
 def get_model_label(key: str) -> str:
     return MODEL_CATALOG[key][1] if key in MODEL_CATALOG else key
+
+
+# // USABLE USER-FRIENDLY LIST 
+def list_models() -> dict:
+    return MODEL_CATALOG

@@ -10,6 +10,8 @@ Repository: https://github.com/SimonWtmn/Exoplot
 import pandas as pd
 from pathlib import Path
 from typing import Union, Callable, Dict
+import numpy as np
+
 from .filters import apply_filters
 
 
@@ -25,7 +27,8 @@ def load_data(path: Union[str, Path]) -> pd.DataFrame:
 
 # ------------------------ All Data Presets ------------------------
 DATA_PATHS = {
-    'NEA': Path(r"C:\Users\simon\OneDrive\Bureau\Exoplot\data\NEA.csv")
+    'NEA': Path(r"C:\Users\simon\OneDrive\Bureau\Exoplot\data\NEA.csv"),
+    'TOI': Path(r"C:\Users\simon\OneDrive\Bureau\Exoplot\data\TOI.csv")
 }
 
 ALL_DATA = {
@@ -37,10 +40,30 @@ ALL_DATA = {
 
 
 # ------------------------ Stellar Spectral Type Presets ------------------------
-STELLAR_PRESETS: Dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
-    f"{t}-type": (lambda df, t=t: apply_filters(df, st_type=t))
-    for t in ['O', 'B', 'A', 'F', 'G', 'K', 'M']
+SPECTRAL_TYPE_TEMPERATURES = {
+    'O': (30000, None),
+    'B': (10000, 30000),
+    'A': (7500, 10000),
+    'F': (6000, 7500),
+    'G': (5200, 6000),
+    'K': (3700, 5200),
+    'M': (2400, 3700)
 }
+
+
+def stellar_type_or_teff(df: pd.DataFrame, t: str) -> pd.DataFrame:
+    if 'st_type' in df.columns:
+        return apply_filters(df, st_type=t)
+    else:
+        teff_min, teff_max = SPECTRAL_TYPE_TEMPERATURES[t]
+        return apply_filters(df, teff_min=teff_min, teff_max=teff_max)
+
+
+STELLAR_PRESETS = {
+    f"{t}-type": (lambda df, t=t: stellar_type_or_teff(df, t))
+    for t in SPECTRAL_TYPE_TEMPERATURES
+}
+
 
 
 
@@ -111,6 +134,12 @@ def conservative_hz(df: pd.DataFrame) -> pd.DataFrame:
 def optimistic_hz(df: pd.DataFrame) -> pd.DataFrame:
     subset = apply_filters(df, rade_max=2.0)
     return subset[subset['pl_insol'].between(0.22, 1.90)].reset_index(drop=True)
+
+
+def basic_hz(df: pd.DataFrame) -> pd.DataFrame:
+    r_min = np.sqrt(df['st_lum'] / 1.1)
+    r_max = np.sqrt(df['st_lum'] / 0.53)
+    return apply_filters(df, )
 
 HZ_PRESETS: Dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
     'Conservative HZ (Kopparapu+)': conservative_hz,

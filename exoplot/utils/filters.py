@@ -22,6 +22,8 @@ def _validate(min_val, max_val, name_min: str, name_max: str):
 
 # --------- APPLY RANGE ----------
 def _apply_range(df, col, min_val, max_val) -> pd.Series:
+    if col not in df.columns:
+        return pd.Series(True, index=df.index)
     mask = df[col].notna()
     if min_val is not None:
         mask &= df[col] >= min_val
@@ -88,6 +90,8 @@ def apply_filters(
     mass_err: Optional[float] = None,
     density_min: Optional[float] = None,
     density_max: Optional[float] = None,
+    distance_min: Optional[float] = None,
+    distance_max: Optional[float] = None,
     eccentricity_max: Optional[float] = None,
     transit_depth_min: Optional[float] = None,
     transit_depth_max: Optional[float] = None,
@@ -119,7 +123,6 @@ def apply_filters(
         _validate(min_, max_, name_min, name_max)
 
     mask = pd.Series(True, index=df.index)
-
 
 
     # ---------------------------------- Discovery filters ----------------------------------
@@ -158,6 +161,7 @@ def apply_filters(
     mask &= _apply_range(df, 'pl_bmasse', mass_min, mass_max)
     if mass_err is not None:
         mask &= _snr_mask(df, 'pl_bmasse', 'pl_bmasseerr1', 'pl_bmasseerr2', mass_err)
+    mask &= _apply_range(df, 'pl_orbsmax', distance_min, distance_max)
     mask &= _apply_range(df, 'pl_dens', density_min, density_max)
     if eccentricity_max is not None:
         mask &= df['pl_orbeccen'].notna() & (df['pl_orbeccen'] <= eccentricity_max)

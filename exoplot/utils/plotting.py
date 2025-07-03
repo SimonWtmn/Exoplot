@@ -7,6 +7,8 @@ Author: S. Wittmann
 Repository: https://github.com/SimonWtmn/Exoplot
 """
 
+
+
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -22,6 +24,12 @@ PRESET_GROUPS = [STELLAR_PRESETS, MISSION_PRESETS, LIT_PRESETS, HZ_PRESETS, PLAN
 ALL_PRESETS = {k: v for group in PRESET_GROUPS for k, v in group.items()}
 
 
+
+
+
+# -------------------------------------- DATA HELPER --------------------------------------
+
+#  // COMBINED SAMPLES FROM THE LIST OF SELECTED PRESETS 
 def combine_samples(samples):
     if isinstance(samples, dict):
         samples = samples.items()
@@ -30,10 +38,12 @@ def combine_samples(samples):
     return pd.concat([df.assign(source=label) for label, df in samples], ignore_index=True)
 
 
+# // ADD READABALE LABEL 
 def prepare_labels(*keys):
     return {k: label_map.get(k, k) for k in keys}
 
 
+# // FIND ERRROS (SKETCH : ONLY GET ERR1) 
 def get_error_columns(df, x, y, show_error):
     return (
         f"{x}err1" if show_error and f"{x}err1" in df else None,
@@ -41,6 +51,7 @@ def get_error_columns(df, x, y, show_error):
     )
 
 
+# // ENSURE CLEAN DATA FOR JSON 
 def clean_data(df, x, y=None, color_by=None, log_x=False, log_y=False, show_error=False):
     cols = [x]
     if y: cols.append(y)
@@ -58,6 +69,12 @@ def clean_data(df, x, y=None, color_by=None, log_x=False, log_y=False, show_erro
     return df
 
 
+
+
+
+# -------------------------------------- TRACE HELPER -------------------------------------
+
+# // ADD SCATTER DATA
 def add_scatter_trace(fig, group, x, y, label_x, label_y,
                       name=None, color=None, err_x=None, err_y=None, marker_extra=None):
     marker = dict(opacity=0.8)
@@ -80,6 +97,7 @@ def add_scatter_trace(fig, group, x, y, label_x, label_y,
     ))
 
 
+# // ADD SCATTER HIGHLIGHTED PLANETS
 def add_highlight_traces(fig, df, x, y, highlight):
     if not highlight:
         return
@@ -101,6 +119,7 @@ def add_highlight_traces(fig, df, x, y, highlight):
             ))
 
 
+# // ADD LINE MODELS
 def add_model_overlay_traces(fig, x, y, overlay_models):
     if not overlay_models:
         return
@@ -111,7 +130,6 @@ def add_model_overlay_traces(fig, x, y, overlay_models):
     from plotly.colors import DEFAULT_PLOTLY_COLORS
     for i, model_key in enumerate(overlay_models):
         model_df = get_model_curve(model_key)
-        print(f"Model '{model_key}' -> {len(model_df)} rows")
         x_model = model_df['mass']
         y_model = model_df['radius']
         if x == "pl_rade":
@@ -124,9 +142,14 @@ def add_model_overlay_traces(fig, x, y, overlay_models):
             line=dict(dash='dash', width=2, color=DEFAULT_PLOTLY_COLORS[i % len(DEFAULT_PLOTLY_COLORS)]),
             showlegend=True
         ))
-        print(f"✔️ Added model trace: {model_key}, x[0]={x_model.iloc[0]}, y[0]={y_model.iloc[0]}")
 
 
+
+
+
+# ------------------------------------- PLOT FUNCTIONS ------------------------------------
+
+# // SIMPLE SCATTER
 def plot_scatter(df, x, y, highlight, log_x, log_y, show_error, overlay_models):
     labels = prepare_labels(x, y)
     err_x, err_y = get_error_columns(df, x, y, show_error)
@@ -149,6 +172,7 @@ def plot_scatter(df, x, y, highlight, log_x, log_y, show_error, overlay_models):
     return fig
 
 
+# // SCATTER WITH CMAPP
 def plot_colored(df, x, y, color_by, highlight=None, log_x=False, log_y=False, show_error=False, colorscale_list=None, overlay_models=None):
     labels = prepare_labels(x, y, color_by)
     palettes = colorscale_list or ['YlOrRd', 'Blues', 'Greens', 'Purples', 'Oranges', 'Viridis']
@@ -191,6 +215,7 @@ def plot_colored(df, x, y, color_by, highlight=None, log_x=False, log_y=False, s
     return fig
 
 
+# // SCATTER WITH DENSITY MAP
 def plot_density(
     df, x, y, highlight=None, log_x=False, log_y=False,
     show_error=False, cmap='Oranges', overlay_models=None
@@ -247,7 +272,7 @@ def plot_density(
     return fig
 
 
-
+# // HISTOGRAM WITH OPTIONAL GROUPS
 def plot_histogram(df, column, by=None, bins=None, log_x=False, log_y=False):
     labels = prepare_labels(column, by) if by else prepare_labels(column)
     palette = px.colors.qualitative.Plotly
@@ -281,6 +306,11 @@ def plot_histogram(df, column, by=None, bins=None, log_x=False, log_y=False):
     return fig
 
 
+
+
+
+# ------------------------------------- MAIN PLOT TOOL ------------------------------------
+
 def main_plot(plot_type, preset_keys=None, df_full='NEA',
               x_axis='pl_bmasse', y_axis='pl_rade', highlight_planets=None,
               color_by=None, log_x=False, log_y=False,
@@ -291,8 +321,7 @@ def main_plot(plot_type, preset_keys=None, df_full='NEA',
         if df_full is None:
             raise KeyError(f"No data named '{df_full}' in ALL_DATA")
 
-    if not preset_keys or preset_keys == ['NEA']:
-        # No presets or explicitly requested NEA: use full dataset
+    if not preset_keys or preset_keys == ['NEA'] or preset_keys == ['TOI']:
         df = df_full.copy()
         df['source'] = 'NEA'
     else:

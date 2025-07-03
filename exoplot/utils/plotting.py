@@ -11,53 +11,82 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+from scipy.ndimage import gaussian_filter
+
 
 from .label import label_map
 from .presets import *
 from .models import get_model_curve
 
-
-# ---------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------
-
 PRESET_GROUPS = [STELLAR_PRESETS, MISSION_PRESETS, LIT_PRESETS, HZ_PRESETS, PLANET_PRESETS]
 ALL_PRESETS = {k: v for group in PRESET_GROUPS for k, v in group.items()}
 
 
-# ---------------------------------------------------------------------
-# Utility Functions
-# ---------------------------------------------------------------------
-
 def combine_samples(samples):
-    """Combine multiple labeled samples into a single DataFrame."""
     if isinstance(samples, dict):
         samples = samples.items()
     elif samples and not isinstance(samples[0], tuple):
         samples = [(f"Sample {i+1}", df) for i, df in enumerate(samples)]
     return pd.concat([df.assign(source=label) for label, df in samples], ignore_index=True)
 
+
 def prepare_labels(*keys):
-    """Return a dictionary of readable labels for plotting."""
     return {k: label_map.get(k, k) for k in keys}
 
+
 def get_error_columns(df, x, y, show_error):
-    """Return error column names if available and show_error is True."""
     return (
         f"{x}err1" if show_error and f"{x}err1" in df else None,
         f"{y}err1" if show_error and f"{y}err1" in df else None
     )
 
 
-# ---------------------------------------------------------------------
-# Plot Trace Helpers
-# ---------------------------------------------------------------------
+def clean_data(df, x, y=None, color_by=None, log_x=False, log_y=False, show_error=False):
+    cols = [x]
+    if y: cols.append(y)
+    if color_by: cols.append(color_by)
+    err_x, err_y = get_error_columns(df, x, y, show_error)
+    if err_x: cols.append(err_x)
+    if err_y: cols.append(err_y)
+    cols += ['pl_name', 'source']
+
+    df = df[cols].replace([np.inf, -np.inf], np.nan).dropna()
+
+    if log_x: df = df[df[x] > 0].copy()
+    if log_y and y: df = df[df[y] > 0].copy()
+
+    return df
+
+
+def add_scatter_trace(fig, group, x, y, label_x, label_y,
+                      name=None, color=None, err_x=None, err_y=None, marker_extra=None):
+    marker = dict(opacity=0.8)
+    if color and (not marker_extra or 'color' not in marker_extra):
+        marker['color'] = color
+    if marker_extra:
+        marker.update(marker_extra)
+
+    fig.add_trace(go.Scatter(
+        x=group[x].tolist(),
+        y=group[y].tolist(),
+        mode='markers',
+        name=name or (group['source'].iloc[0] if 'source' in group and not group.empty else 'Sample'),
+        text=group['pl_name'].tolist(),
+        marker=marker,
+        error_x=dict(array=group[err_x].tolist()) if err_x else None,
+        error_y=dict(array=group[err_y].tolist()) if err_y else None,
+        hovertemplate=f"%{{text}}<br>{label_x} = %{{x}}<br>{label_y} = %{{y}}<extra></extra>",
+        showlegend=True
+    ))
+
 
 def add_highlight_traces(fig, df, x, y, highlight):
-    """Add markers for highlighted planets."""
     if not highlight:
         return
     for planet in highlight:
+        if planet not in df['pl_name'].values:
+            print(f"⚠️ Planet {planet} not found in current data, skipping")
+            continue
         hp = df[df['pl_name'] == planet]
         if not hp.empty:
             fig.add_trace(go.Scatter(
@@ -71,40 +100,18 @@ def add_highlight_traces(fig, df, x, y, highlight):
                 hovertemplate="%{text}<extra></extra>"
             ))
 
-def add_scatter_trace(fig, group, x, y, label_x, label_y,
-                      name=None, color=None, err_x=None, err_y=None, marker_extra=None):
-    """Add a scatter trace to the figure."""
-    marker = dict(opacity=0.8)
-    if color and (not marker_extra or 'color' not in marker_extra):
-        marker['color'] = color
-    if marker_extra:
-        marker.update(marker_extra)
-
-    fig.add_trace(go.Scatter(
-        x=group[x], y=group[y],
-        mode='markers',
-        name=name or group.get('source', 'Sample'),
-        text=group['pl_name'],
-        marker=marker,
-        error_x=dict(array=group[err_x]) if err_x else None,
-        error_y=dict(array=group[err_y]) if err_y else None,
-        customdata=group[['pl_name', 'source']],
-        hovertemplate=f"%{{text}}<br>{label_x} = %{{x}}<br>{label_y} = %{{y}}<extra></extra>"
-    ))
 
 def add_model_overlay_traces(fig, x, y, overlay_models):
-    """Overlay model curves (for mass-radius plots)."""
     if not overlay_models:
         return
-
     valid_axes = {("pl_bmasse", "pl_rade"), ("pl_rade", "pl_bmasse")}
     if (x, y) not in valid_axes and (y, x) not in valid_axes:
-        raise ValueError(f"Model overlays are only valid for mass–radius plots. Got x='{x}', y='{y}'")
+        return
 
     from plotly.colors import DEFAULT_PLOTLY_COLORS
-
     for i, model_key in enumerate(overlay_models):
         model_df = get_model_curve(model_key)
+        print(f"Model '{model_key}' -> {len(model_df)} rows")
         x_model = model_df['mass']
         y_model = model_df['radius']
         if x == "pl_rade":
@@ -114,20 +121,13 @@ def add_model_overlay_traces(fig, x, y, overlay_models):
             x=x_model, y=y_model,
             mode='lines',
             name=model_key.replace('_', ' ').title(),
-            line=dict(
-                dash='dash',
-                width=2,
-                color=DEFAULT_PLOTLY_COLORS[i % len(DEFAULT_PLOTLY_COLORS)]
-            )
+            line=dict(dash='dash', width=2, color=DEFAULT_PLOTLY_COLORS[i % len(DEFAULT_PLOTLY_COLORS)]),
+            showlegend=True
         ))
+        print(f"✔️ Added model trace: {model_key}, x[0]={x_model.iloc[0]}, y[0]={y_model.iloc[0]}")
 
-
-# ---------------------------------------------------------------------
-# Plot Types
-# ---------------------------------------------------------------------
 
 def plot_scatter(df, x, y, highlight, log_x, log_y, show_error, overlay_models):
-    """Basic scatter plot with optional highlight and model overlay."""
     labels = prepare_labels(x, y)
     err_x, err_y = get_error_columns(df, x, y, show_error)
     base_df = df if not highlight else df[~df['pl_name'].isin(highlight)]
@@ -144,13 +144,12 @@ def plot_scatter(df, x, y, highlight, log_x, log_y, show_error, overlay_models):
         xaxis=dict(title=labels[x], type='log' if log_x else 'linear'),
         yaxis=dict(title=labels[y], type='log' if log_y else 'linear'),
         margin=dict(l=60, r=20, t=40, b=60),
-        template='plotly_white',
-        height=800
+        template='plotly_white', height=500, width=1100
     )
     return fig
 
+
 def plot_colored(df, x, y, color_by, highlight=None, log_x=False, log_y=False, show_error=False, colorscale_list=None, overlay_models=None):
-    """Scatter plot with points colored by a third variable."""
     labels = prepare_labels(x, y, color_by)
     palettes = colorscale_list or ['YlOrRd', 'Blues', 'Greens', 'Purples', 'Oranges', 'Viridis']
     vmin, vmax = df[color_by].min(), df[color_by].max()
@@ -160,26 +159,24 @@ def plot_colored(df, x, y, color_by, highlight=None, log_x=False, log_y=False, s
 
     for i, (src, group) in enumerate(base_df.groupby('source')):
         fig.add_trace(go.Scatter(
-            x=group[x], y=group[y],
-            mode='markers', name=src, text=group['pl_name'],
+            x=group[x].tolist(), y=group[y].tolist(), mode='markers', name=src,
+            text=group['pl_name'].tolist(),
             marker=dict(
-                color=group[color_by], colorscale=palettes[i % len(palettes)],
+                color=group[color_by].tolist(), colorscale=palettes[i % len(palettes)],
                 cmin=vmin, cmax=vmax, showscale=True,
                 colorbar=dict(x=1.02 + i * 0.08, y=0.4, len=0.6, thickness=12)
             ),
-            error_x=dict(array=group[err_x]) if err_x else None,
-            error_y=dict(array=group[err_y]) if err_y else None,
+            error_x=dict(array=group[err_x].tolist()) if err_x else None,
+            error_y=dict(array=group[err_y].tolist()) if err_y else None,
             hovertemplate=f"%{{text}}<br>{labels[x]} = %{{x}}<br>{labels[y]} = %{{y}}<br>{labels[color_by]} = %{{marker.color}}<extra></extra>"
         ))
         fig.add_annotation(x=1.02 + i * 0.08 + 0.02, y=0.1, text=src, xref='paper', yref='paper',
                            showarrow=False, xanchor='center', yanchor='top', font=dict(size=12))
 
     if base_df['source'].nunique():
-        fig.add_annotation(
-            x=1.02 + (len(base_df['source'].unique()) - 1) * 0.08 / 1.6, y=0.05,
-            text=labels[color_by], xref='paper', yref='paper',
-            showarrow=False, xanchor='center', yanchor='top', font=dict(size=12)
-        )
+        fig.add_annotation(x=1.02 + (len(base_df['source'].unique()) - 1) * 0.08 / 1.6, y=0.05,
+                           text=labels[color_by], xref='paper', yref='paper',
+                           showarrow=False, xanchor='center', yanchor='top', font=dict(size=12))
 
     add_highlight_traces(fig, df, x, y, highlight)
     add_model_overlay_traces(fig, x, y, overlay_models)
@@ -189,67 +186,75 @@ def plot_colored(df, x, y, color_by, highlight=None, log_x=False, log_y=False, s
         xaxis=dict(title=labels[x], type='log' if log_x else 'linear'),
         yaxis=dict(title=labels[y], type='log' if log_y else 'linear'),
         margin=dict(l=60, r=100, t=60, b=100),
-        template='plotly_white',
-        height=800
+        template='plotly_white', height=500, width=1100
     )
     return fig
 
-def plot_density(df, x, y, highlight=None, log_x=False, log_y=False, show_error=False, cmap='YlOrBr', overlay_models=None):
-    """Density plot using 2D histogram contour."""
+
+def plot_density(
+    df, x, y, highlight=None, log_x=False, log_y=False,
+    show_error=False, cmap='Oranges', overlay_models=None
+):
     labels = prepare_labels(x, y)
     err_x, err_y = get_error_columns(df, x, y, show_error)
-    df = df[[x, y, 'pl_name', 'source'] + [c for c in (err_x, err_y) if c]].replace([np.inf, -np.inf], np.nan).dropna()
+    base_df = df if not highlight else df[~df['pl_name'].isin(highlight)]
+    fig = go.Figure()
+
+    x_data = df[x].to_numpy()
+    y_data = df[y].to_numpy()
 
     if log_x:
-        df = df[df[x] > 0].copy(); df[x] = np.log10(df[x])
+        x_data = np.log10(x_data)
     if log_y:
-        df = df[df[y] > 0].copy(); df[y] = np.log10(df[y])
+        y_data = np.log10(y_data)
 
-    fig = go.Figure()
-    if len(df) >= 10:
-        fig.add_trace(go.Histogram2dContour(
-            x=df[x], y=df[y], colorscale=cmap,
-            contours=dict(coloring='fill', showlines=False),
-            colorbar=dict(title='Density', x=1.02, y=0.5, len=0.6, thickness=12),
-            showscale=True, hoverinfo='skip', name='Density', opacity=0.5
-        ))
+    bins = 50
+    x_bins = np.linspace(x_data.min(), x_data.max(), bins)
+    y_bins = np.linspace(y_data.min(), y_data.max(), bins)
+
+    H, xedges, yedges = np.histogram2d(x_data, y_data, bins=[x_bins, y_bins])
+    H = gaussian_filter(H, sigma=8) 
+
+    x_centers = (xedges[:-1] + xedges[1:]) / 2
+    y_centers = (yedges[:-1] + yedges[1:]) / 2
+
+    fig.add_trace(go.Heatmap(
+        x=x_centers if not log_x else 10**x_centers,
+        y=y_centers if not log_y else 10**y_centers,
+        z=H.T,
+        colorscale=cmap,
+        colorbar=dict(title='Density', x=1.02, y=0.5, len=0.6, thickness=12),
+        opacity=0.7,
+        name='Density'
+    ))
 
     palette = px.colors.qualitative.Plotly
-    base_df = df if not highlight else df[~df['pl_name'].isin(highlight)]
     for i, (src, group) in enumerate(base_df.groupby('source')):
-        add_scatter_trace(fig, group, x, y, labels[x], labels[y],
-                          name=src, color=palette[i % len(palette)], err_x=err_x, err_y=err_y)
+        add_scatter_trace(fig, group, x, y, labels[x], labels[y], name=src,
+                          color=palette[i % len(palette)], err_x=err_x, err_y=err_y,
+                          marker_extra={'opacity': 0.6})
 
     add_highlight_traces(fig, df, x, y, highlight)
     add_model_overlay_traces(fig, x, y, overlay_models)
 
-    def log_ticks(series, enabled):
-        if not enabled: return None, None
-        exponents = range(int(np.floor(series.min())), int(np.ceil(series.max())) + 1)
-        return list(exponents), [f"10<sup>{e}</sup>" for e in exponents]
-
-    xticks, xticklabels = log_ticks(df[x], log_x)
-    yticks, yticklabels = log_ticks(df[y], log_y)
-
     fig.update_layout(
-        xaxis=dict(title=labels[x], tickvals=xticks, ticktext=xticklabels),
-        yaxis=dict(title=labels[y], tickvals=yticks, ticktext=yticklabels),
-        title=f"{labels[y]} vs {labels[x]} (with Occurrence Pattern)",
+        xaxis=dict(title=labels[x], type='log' if log_x else 'linear'),
+        yaxis=dict(title=labels[y], type='log' if log_y else 'linear'),
+        title=f"{labels[y]} vs {labels[x]} (with Density)",
         margin=dict(l=60, r=100, t=60, b=60),
-        template='plotly_white',
-        height=800
+        template='plotly_white', height=500, width=1100
     )
     return fig
 
+
+
 def plot_histogram(df, column, by=None, bins=None, log_x=False, log_y=False):
-    """Histogram plot, optionally grouped by a category."""
     labels = prepare_labels(column, by) if by else prepare_labels(column)
     palette = px.colors.qualitative.Plotly
-    data = df[[column] + ([by] if by else [])].replace([np.inf, -np.inf], np.nan).dropna()
-
     fig = go.Figure()
-    if by and by in data.columns:
-        for i, (name, group) in enumerate(data.groupby(by)):
+
+    if by and by in df.columns:
+        for i, (name, group) in enumerate(df.groupby(by)):
             fig.add_trace(go.Histogram(
                 x=group[column], name=str(name), nbinsx=bins,
                 opacity=0.75,
@@ -259,7 +264,7 @@ def plot_histogram(df, column, by=None, bins=None, log_x=False, log_y=False):
         barmode = 'stack'
     else:
         fig.add_trace(go.Histogram(
-            x=data[column], nbinsx=bins,
+            x=df[column], nbinsx=bins,
             marker=dict(color=palette[0], line=dict(color='black', width=1)),
             hovertemplate=f"{labels[column]}: %{{x}}<br>Count: %{{y}}<extra></extra>"
         ))
@@ -271,46 +276,28 @@ def plot_histogram(df, column, by=None, bins=None, log_x=False, log_y=False):
         xaxis=dict(title=labels[column], type='log' if log_x else 'linear'),
         yaxis=dict(title='Count'),
         margin=dict(l=60, r=60, t=60, b=60),
-        template='plotly_white',
-        height=600
+        template='plotly_white', height=500, width=1100
     )
     return fig
 
 
-# ---------------------------------------------------------------------
-# Main Interface
-# ---------------------------------------------------------------------
-
-def main_plot(plot_type, preset_keys=None, df_full=None,
-              x_axis=None, y_axis=None, highlight_planets=None,
+def main_plot(plot_type, preset_keys=None, df_full='NEA',
+              x_axis='pl_bmasse', y_axis='pl_rade', highlight_planets=None,
               color_by=None, log_x=False, log_y=False,
-              show_error=False, cmap='YlOrBr', show_points=True, bins=None,
+              show_error=False, cmap='YlOrBr', bins=None,
               overlay_models=None):
-    """Main interface to generate a plot based on the plot_type."""
-    if df_full is None:
-        raise ValueError("`df_full` is required when using `preset_keys`")
     if isinstance(df_full, str):
         df_full = ALL_DATA.get(df_full)
         if df_full is None:
             raise KeyError(f"No data named '{df_full}' in ALL_DATA")
 
-    df_list = []
-    for key in preset_keys:
-        if key in ALL_PRESETS:
-            df_list.append((key, ALL_PRESETS[key](df_full)))
-        elif key in ALL_DATA:
-            df_list.append((key, ALL_DATA[key]))
-        else:
-            raise KeyError(f"No such presets or data: {key}")
-
-    df = combine_samples(df_list)
-    if 'pl_name' not in df.columns:
-        raise KeyError("Combined DataFrame must contain a 'pl_name' column.")
-
-    if highlight_planets:
-        missing = [p for p in highlight_planets if p not in df['pl_name'].values]
-        if missing:
-            print(f"⚠️ Planets not found: {', '.join(missing)}")
+    if not preset_keys or preset_keys == ['NEA']:
+        # No presets or explicitly requested NEA: use full dataset
+        df = df_full.copy()
+        df['source'] = 'NEA'
+    else:
+        df_list = [(key, ALL_PRESETS[key](df_full)) for key in preset_keys if key in ALL_PRESETS]
+        df = combine_samples(df_list)
 
     plot_funcs = {
         'scatter': plot_scatter,
@@ -319,26 +306,26 @@ def main_plot(plot_type, preset_keys=None, df_full=None,
         'histogram': plot_histogram
     }
 
-    if plot_type not in plot_funcs:
-        raise ValueError(f"Unknown plot_type: {plot_type}")
+    if plot_type == 'histogram':
+        df = clean_data(df, x_axis, color_by, log_x=log_x, log_y=log_y)
+        return plot_histogram(df, column=x_axis, by=color_by, bins=bins, log_x=log_x, log_y=log_y)
+    else:
+        df = clean_data(df, x_axis, y_axis, color_by=color_by, log_x=log_x, log_y=log_y, show_error=show_error)
 
-    kwargs = dict()
-    if plot_type == 'colored':
-        kwargs = dict(df=df, x=x_axis, y=y_axis, highlight=highlight_planets,
-                      log_x=log_x, log_y=log_y, show_error=show_error,
-                      color_by=color_by, overlay_models=overlay_models)
-    elif plot_type == 'density':
-        kwargs = dict(df=df, x=x_axis, y=y_axis, highlight=highlight_planets,
-                      log_x=log_x, log_y=log_y, show_error=show_error,
-                      cmap=cmap, overlay_models=overlay_models)
-    elif plot_type == 'histogram':
-        kwargs = dict(df=df, column=x_axis, by=color_by,
-                      log_x=log_x, log_y=log_y, bins=bins)
-    else:  # 'scatter'
-        kwargs = dict(df=df, x=x_axis, y=y_axis, highlight=highlight_planets,
-                      log_x=log_x, log_y=log_y, show_error=show_error,
-                      overlay_models=overlay_models)
-
-    fig = plot_funcs[plot_type](**kwargs)
-    fig.show()
+        if plot_type == 'colored':
+            return plot_colored(
+                df, x_axis, y_axis, color_by, highlight_planets,
+                log_x, log_y, show_error,
+                overlay_models=overlay_models
+            )
+        elif plot_type == 'density':
+            return plot_density(
+                df, x_axis, y_axis, highlight_planets,
+                log_x, log_y, show_error, cmap=cmap if cmap else 'YlOrBr',
+                overlay_models=overlay_models
+            )
+        else:
+            return plot_funcs[plot_type](
+                df, x_axis, y_axis, highlight_planets, log_x, log_y, show_error, overlay_models
+            )
 

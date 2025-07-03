@@ -78,7 +78,7 @@ def fulton2017_gap(df: pd.DataFrame) -> pd.DataFrame:
         kp_max=14.2,
         teff_min=4700,
         teff_max=6500,
-        use_fulton_filter=True,
+        use_fulton_filter=False,
         st_rad_max=2,
         impact_param_max=0.7,
         rade_max=5

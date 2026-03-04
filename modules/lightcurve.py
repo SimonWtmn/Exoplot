@@ -29,8 +29,7 @@ class LightCurveAnalyzer:
         """
         self.target_name = target_name
         
-        # We initialize all our state variables to None. 
-        # They will be populated as the user progresses through the analysis steps.
+        # We initialize all our state variables to None. They will be populated as the user progresses through the analysis steps.
         self.search_result = None
         self.raw_lc = None
         self.clean_lc = None
@@ -64,14 +63,8 @@ class LightCurveAnalyzer:
 
         if len(self.search_result) == 0:
             return pd.DataFrame() # Return empty dataframe if nothing is found
-
-        # Convert the lightkurve search result table into a standard Pandas DataFrame
         df = self.search_result.table.to_pandas()
-        
-        # We only return the most relevant columns to keep the UI clean
         cols_to_show = ['mission', 'year', 'author', 'exptime', 'target_name', 'distance']
-        
-        # Check which columns actually exist in the result to avoid KeyErrors
         available_cols = [col for col in cols_to_show if col in df.columns]
         
         return df[available_cols]
@@ -85,15 +78,10 @@ class LightCurveAnalyzer:
             index (int): The row number from the search result dataframe.
         """
         if self.search_result is None or len(self.search_result) == 0:
-            raise ValueError("No search results available. Call search() first.")
-            
+            raise ValueError("No search results available. Call search() first.")  
         if index < 0 or index >= len(self.search_result):
             raise IndexError(f"Invalid index {index}. Must be between 0 and {len(self.search_result)-1}.")
-
-        # Download the selected observation
         self.raw_lc = self.search_result[index].download()
-        
-        # Normalize the flux (so the baseline is around 1.0) and drop empty data points
         self.clean_lc = self.raw_lc.normalize().remove_nans()
         
         return self
@@ -105,15 +93,10 @@ class LightCurveAnalyzer:
         """
         if self.clean_lc is None:
             raise ValueError("No clean lightcurve available. Call download_and_clean() first.")
-
-        # Compute the BLS periodogram
         self.periodogram = self.clean_lc.to_periodogram(method='bls')
-        
-        # Extract the index of the highest power peak (the most likely period)
         max_power_idx = np.argmax(self.periodogram.power)
         
         # Extract physical parameters from that peak
-        # We use .to_value() to strip the astropy units so we can use pure numbers later
         self.best_period = self.periodogram.period[max_power_idx].to_value(u.day)
         self.best_freq = self.periodogram.frequency[max_power_idx].to_value(1/u.day)
         self.best_power = self.periodogram.power[max_power_idx].value

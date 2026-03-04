@@ -191,8 +191,8 @@ MCMC_LABELS = [r"$R_p / R_s$", r"Inclination (deg)", r"$a/R_s$", r"$t_0$"]
 # Physical constraints/bounds for the MCMC walkers
 MCMC_BOUNDS = [
     (0.001, 0.2),      # Minimum and maximum planetary radius ratio
-    (83.0, 89.9),      # Inclination angle in degrees
-    (5.0, 15.0),       # Semi-major axis to stellar radius ratio
+    (89.6, 95),        # Inclination angle in degrees
+    (4, 4.2),          # Semi-major axis to stellar radius ratio
     (-0.04, 0.04),     # Mid-transit time offset limits
 ]
 

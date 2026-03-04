@@ -11,7 +11,6 @@ Repository: https://github.com/SimonWtmn/Exoplot_ENS
 import pandas as pd
 from pathlib import Path
 
-# We import the required constants from our newly created constants file
 from .constants import SPECTRAL_TYPE_TEMPERATURES, DATA_PATHS
 
 
@@ -35,7 +34,6 @@ class ExoplanetCatalog:
         """
         self.name = dataset_name
         
-        # Determine the correct path: either the custom one, or one from the constants
         if custom_path:
             file_path = Path(custom_path)
         else:
@@ -44,10 +42,7 @@ class ExoplanetCatalog:
         if file_path is None or not file_path.exists():
             raise FileNotFoundError(f"Dataset '{dataset_name}' not found at {file_path}")
 
-        # Load the data once and store the untouched original
         self.original_df = self._load_data(file_path)
-        
-        # self.df is the working copy that gets modified by filters
         self.df = self.original_df.copy()
 
     def _load_data(self, path: Path):

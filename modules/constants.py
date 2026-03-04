@@ -15,15 +15,27 @@ from pathlib import Path
 # Directory Paths
 # ===========================================================
 # We use pathlib to dynamically find the paths relative to this specific file.
-# This prevents "file not found" errors when running Flask from different directories.
 BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data"
-MODELS_DIR = BASE_DIR / "data" / "theoretical_models"
+MODELS_DIR = DATA_DIR / "theoretical_models"
 
-# Define the absolute or relative paths for the datasets you use.
+def _get_latest_dataset(prefix: str, directory: Path, extension: str = ".csv") -> Path:
+    """
+    Scans the given directory for files starting with the prefix (e.g., 'NEA') 
+    and returns the one with the latest date/alphabetical sort.
+    """
+    if not directory.exists():
+        return directory / f"{prefix}{extension}" # Fallback
+    matching_files = list(directory.glob(f"{prefix}*{extension}"))
+    if not matching_files:
+        return directory / f"{prefix}{extension}"
+    matching_files.sort(reverse=True)
+    
+    return matching_files[0]
+
 DATA_PATHS = {
-    'NEA': DATA_DIR / "NEA.csv",
-    'TOI': DATA_DIR / "TOI.csv"
+    'NEA': _get_latest_dataset('NEA', DATA_DIR),
+    'TOI': _get_latest_dataset('TOI', DATA_DIR)
 }
 
 

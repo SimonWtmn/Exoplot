@@ -18,7 +18,7 @@ from pathlib import Path
 # This prevents "file not found" errors when running Flask from different directories.
 BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data"
-MODELS_DIR = BASE_DIR / "modules" / "theoretical_models"
+MODELS_DIR = BASE_DIR / "data" / "theoretical_models"
 
 # Define the absolute or relative paths for the datasets you use.
 DATA_PATHS = {
@@ -30,7 +30,6 @@ DATA_PATHS = {
 # ===========================================================
 # Label Mapping for UI and Plotting
 # ===========================================================
-# This dictionary translates raw dataset column names into human-readable HTML-formatted labels for Plotly axes and hover tooltips.
 LABEL_MAP = {
     # Planetary properties
     'pl_name': "Planet Name",
@@ -99,7 +98,6 @@ LABEL_MAP = {
 # ===========================================================
 # Stellar Parameters
 # ===========================================================
-# Temperature ranges (Min, Max) in Kelvin for each spectral classification.
 SPECTRAL_TYPE_TEMPERATURES = {
     'O': (30000, None),     'B': (10000, 30000),     'A': (7500, 10000),
     'F': (6100, 7500),      'G': (5300, 6100),       'K': (3800, 5300),
@@ -110,7 +108,6 @@ SPECTRAL_TYPE_TEMPERATURES = {
 # ===========================================================
 # Habitable Zone (HZ) Coefficients
 # ===========================================================
-# Constants used to compute the polynomial boundaries of the Habitable Zone.
 HZ_NAMES = [
     'Recent Venus', 'Runaway Greenhouse', 'Maximum Greenhouse',
     'Early Mars', '5ME Runaway Greenhouse', '0.1ME Runaway Greenhouse'
@@ -126,16 +123,33 @@ HZ_D = [-3.097e-15, -1.931e-15, -5.575e-16, -5.011e-16, -2.084e-15, -1.713e-15]
 # ===========================================================
 # Theoretical Mass-Radius Models
 # ===========================================================
-# Dictionary mapping an internal key to a tuple containing:
-# 1. The exact text filename of the model data
-# 2. The human-readable label for the plot legend
 MODEL_CATALOG = {
+    # Original Models
     "zeng_rocky": ("zeng_2019_pure_rock", "Zeng+2019: Pure Rock"),
     "zeng_iron": ("zeng_2019_pure_iron", "Zeng+2019: Pure Iron"),
     "zeng_earth": ("zeng_2019_earth_like", "Zeng+2019: Earth-like"),
     "zeng_2016_20fe": ("zeng_2016_20_Fe", "Zeng+2016: 20% Iron"),
-    "Water World": ("MR-Water20_650K_DORN.txt", "Water World: 650K"),
     "marcus_collision": ("marcus_2010_maximum_collision_stripping", "Marcus+2010: Collision"),
+    
+    # Models with headers
+    "Water World": ("MR-Water20_650K_DORN.txt", "Water World: 650K", {'usecols': [0, 1], 'header': 0}),
+    "luo_2024": ("luo_2024.txt", "Luo 2024", {'usecols': [0, 1], 'header': 0}),
+    
+    # Aguichine Models
+    "aguichine_2021": ("aguichine_2021", "Aguichine 2021", {'usecols': [4, 6], 'header': 0}),
+    "aguichine_2025": ("aguichine_2025.dat", "Aguichine 2025", {'usecols': [3, 6], 'header': 0}),
+    
+    # Tang 2025 Models
+    "tang_2025": ("tang_2025.dat", "Tang 2025", {'usecols': [3, 6], 'header': 0}),
+    "tang_2025_boiloff": ("tang_2025_boiloff.csv", "Tang 2025: Boil-off", {'usecols': [0, 1], 'header': 0, 'sep': ','}),
+    
+    # Lopez & Fortney Grids
+    "LF_100Myr_solar": ("Lopez&Fortney_2014_100Myr_solar", "L&F 2014: 100Myr (Solar)", {'usecols': [1, 2], 'header': 0}),
+    "LF_100Myr_enhanced": ("Lopez&Fortney_2014_100Myr_enhanced", "L&F 2014: 100Myr (Enhanced)", {'usecols': [1, 2], 'header': 0}),
+    "LF_1Gyr_solar": ("Lopez&Fortney_2014_1Gyr_solar", "L&F 2014: 1Gyr (Solar)", {'usecols': [1, 2], 'header': 0}),
+    "LF_1Gyr_enhanced": ("Lopez&Fortney_2014_1Gyr_enhanced", "L&F 2014: 1Gyr (Enhanced)", {'usecols': [1, 2], 'header': 0}),
+    "LF_10Gyr_solar": ("Lopez&Fortney_2014_10Gyr_solar", "L&F 2014: 10Gyr (Solar)", {'usecols': [1, 2], 'header': 0}),
+    "LF_10Gyr_enhanced": ("Lopez&Fortney_2014_10Gyr_enhanced", "L&F 2014: 10Gyr (Enhanced)", {'usecols': [1, 2], 'header': 0}),
 }
 
 # Dynamically generating entries for Zeng 2019 Hydrogen envelope models
@@ -144,8 +158,7 @@ MODEL_CATALOG.update({
         f"zeng_2019_{pct}_H2_onto_earth_like_{temp}K",
         f"Zeng+2019: {pct}% H₂ @ {temp}K"
     )
-    for pct in [0.1, 0.3, 1, 2, 5]
-    for temp in [300, 500, 700, 1000, 2000]
+    for pct in [0.1, 0.3, 1, 2, 5] for temp in [300, 500, 700, 1000, 2000]
 })
 
 # Dynamically generating entries for Zeng 2019 Water world models
@@ -154,19 +167,16 @@ MODEL_CATALOG.update({
         f"zeng_2019_{pct}_H2O_{temp}K",
         f"Zeng+2019: {pct}% H₂O @ {temp}K"
     )
-    for pct in [50, 100]
-    for temp in [300, 500, 700, 1000]
+    for pct in [50, 100] for temp in [300, 500, 700, 1000]
 })
 
 
 # ===========================================================
 # MCMC & Batman Transit Constants
 # ===========================================================
-# Formatting labels for the corner plots
 MCMC_LABELS = [r"$R_p / R_s$", r"Inclination (deg)", r"$a/R_s$", r"$t_0$"]
 
 # Physical constraints/bounds for the MCMC walkers
-# Order: (rp/rs, inclination, a/rs, t0)
 MCMC_BOUNDS = [
     (0.001, 0.2),      # Minimum and maximum planetary radius ratio
     (83.0, 89.9),      # Inclination angle in degrees

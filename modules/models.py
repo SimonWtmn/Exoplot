@@ -27,17 +27,16 @@ class MassRadiusModels:
         self.catalog = MODEL_CATALOG
         self.models_directory = MODELS_DIR
 
-    def list_available_models(self) -> dict:
+    def list_available_models(self):
         """
         Returns the full dictionary of available models.
 
         Returns:
             dict: The catalog where keys are internal IDs and values are (filename, label).
         """
-        # We return a copy to prevent accidental modifications to the original dictionary
         return self.catalog.copy()
 
-    def get_model_label(self, key: str) -> str:
+    def get_model_label(self, key: str):
         """
         Retrieves the human-readable label for a specific model key.
         
@@ -51,19 +50,47 @@ class MassRadiusModels:
 
     def get_model_curve(self, key: str) -> pd.DataFrame:
         """
-        Loads the numerical data for the requested mass-radius curve.
-        
-        Args:
-            key (str): The internal identifier for the model.
-            
-        Returns:
-            pd.DataFrame: A dataframe containing exactly two columns: ['mass', 'radius'].
-            
-        Raises:
-            KeyError: If the requested key is not in the catalog.
-            FileNotFoundError: If the physical text file is missing from the directory.
-            ValueError: If the file does not have exactly two columns.
+        Loads the numerical data for the requested mass-radius curve using 
+        specific reading instructions if provided in the catalog.
         """
-        # 1. Verify the key is valid
         if key not in self.catalog:
-            raise KeyError(f"Invalid model key '{key}'. Use list_available_models() to view options.")
+            raise KeyError(f"Invalid model key '{key}'.")
+
+        # Extract file info
+        model_info = self.catalog[key]
+        filename = model_info[0]
+        filepath = self.models_directory / filename
+
+        if not filepath.exists():
+            raise FileNotFoundError(f"Model data file not found at: {filepath}")
+
+        # Default reading parameters (works for Zeng and Marcus)
+        read_params = {
+            'sep': r'\s+|\t+',
+            'header': None,
+            'engine': 'python',
+            'comment': '#'
+        }
+        if len(model_info) > 2:
+            read_params.update(model_info[2])
+
+        try:
+            # Load the dataframe with the dynamic instructions
+            df = pd.read_csv(filepath, **read_params)
+            
+            # If 'usecols' wasn't specified, we aggressively force the first two columns
+            if 'usecols' not in read_params:
+                df = df.iloc[:, :2]
+                
+        except Exception as e:
+            raise ValueError(f"Failed to read file {filename}: {e}")
+            
+        # Ensure we don't have stray string headers in our data rows
+        if isinstance(df.iloc[0, 0], str):
+            df = df.iloc[1:].copy()
+            df = df.apply(pd.to_numeric, errors='coerce')
+
+        # Standardize the output
+        df.columns = ['mass', 'radius']
+        
+        return df.dropna().reset_index(drop=True)

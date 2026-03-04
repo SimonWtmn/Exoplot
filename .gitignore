@@ -1,1 +1,4 @@
 exoplotvenv/
+
+modules/ 
+__pycache__/

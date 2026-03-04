@@ -21,8 +21,6 @@ from plotly.colors import DEFAULT_PLOTLY_COLORS
 from .constants import LABEL_MAP
 from .models import MassRadiusModels
 
-
-
 # ===========================================================
 # Base Styling Configuration
 # ===========================================================
@@ -42,28 +40,39 @@ class PlotStyle:
         return fig.to_html(full_html=False, include_plotlyjs='cdn', config={'responsive': True})
 
     @staticmethod
-    def apply_dark_theme(fig: go.Figure, x_label: str, y_label: str, 
-                         log_x: bool = False, log_y: bool = False) -> go.Figure:
+    def apply_theme(fig: go.Figure, x_label: str, y_label: str, 
+                    log_x: bool = False, log_y: bool = False, theme: str = 'dark') -> go.Figure:
         """
-        Applies a consistent dark theme, gridlines, and axis scaling to a figure.
+        Applies a consistent theme (dark or light), gridlines, and axis scaling to a figure.
         """
+        is_dark = (theme == 'dark')
+        
+        # Define dynamic colors based on the chosen theme
+        font_color = "white" if is_dark else "#2C3E50"
+        grid_color = 'rgba(255,255,255,0.1)' if is_dark else 'rgba(0,0,0,0.1)'
+        line_color = 'white' if is_dark else '#2C3E50'
+        bg_color = 'rgba(68,68,68,0.5)' if is_dark else 'rgba(255,255,255,0.8)'
+        template = 'plotly_dark' if is_dark else 'plotly_white'
+
         fig.update_layout(
-            font=dict(family="Inter, sans-serif", size=14, color="white"),
+            font=dict(family="Inter, sans-serif", size=14, color=font_color),
             xaxis=dict(
                 title=x_label, 
                 type='log' if log_x else 'linear',
-                showgrid=True, gridcolor='rgba(255,255,255,0.1)', 
-                showline=True, linecolor='white', mirror=True
+                showgrid=True, gridcolor=grid_color, 
+                showline=True, linecolor=line_color, mirror=True
             ),
             yaxis=dict(
                 title=y_label, 
                 type='log' if log_y else 'linear',
-                showgrid=True, gridcolor='rgba(255,255,255,0.1)', 
-                showline=True, linecolor='white', mirror=True
+                showgrid=True, gridcolor=grid_color, 
+                showline=True, linecolor=line_color, mirror=True
             ),
             margin=dict(l=80, r=80, t=80, b=80), 
-            template='plotly_dark',
-            legend=dict(bgcolor='rgba(68,68,68,0.5)', bordercolor='white', borderwidth=1)
+            template=template,
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)',
+            legend=dict(bgcolor=bg_color, bordercolor=line_color, borderwidth=1)
         )
         return fig
 
@@ -73,9 +82,6 @@ class PlotStyle:
         Translates a raw dataframe column name into a human-readable HTML label.
         """
         return LABEL_MAP.get(col_name, col_name)
-
-
-
 
 # ===========================================================
 # Transit & MCMC Visualization
@@ -90,14 +96,13 @@ class TransitPlotter:
     def plot_lightcurve(x: np.ndarray, y: np.ndarray, err: np.ndarray = None, 
                         model_x: np.ndarray = None, model_y: np.ndarray = None,
                         title: str = "Light Curve", style: str = 'scatter', 
-                        bins: int = None, xlabel: str = "Time", ylabel: str = "Flux") -> str:
+                        bins: int = None, xlabel: str = "Time", ylabel: str = "Flux", 
+                        theme: str = 'dark') -> str:
         """
-        Plots a standard or folded lightcurve, optionally overlaying a theoretical fit 
-        and binning the data for clarity.
+        Plots a standard or folded lightcurve, optionally overlaying a theoretical fit.
         """
         fig = go.Figure()
 
-        # 1. Plot the raw observational data
         if style == 'line':
             fig.add_trace(go.Scatter(x=x, y=y, mode='lines', line=dict(color='orange'), name='Data'))
         elif style == 'errorbar' and err is not None:
@@ -109,31 +114,30 @@ class TransitPlotter:
         else:
             fig.add_trace(go.Scatter(x=x, y=y, mode='markers', marker=dict(size=3, color='orange'), name='Data'))
 
-        # 2. Add binned data if requested (reduces visual noise)
         if bins:
             bin_means, bin_edges, _ = stats.binned_statistic(x, y, statistic='mean', bins=bins)
             bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
+            cyan_color = '#00E5FF' if theme == 'dark' else '#00BFFF'
             fig.add_trace(go.Scatter(
                 x=bin_centers, y=bin_means, mode='markers+lines', 
-                marker=dict(size=6, color='cyan'), line=dict(color='cyan'), 
+                marker=dict(size=6, color=cyan_color), line=dict(color=cyan_color), 
                 name=f'Binned (N={bins})'
             ))
 
-        # 3. Add the theoretical model fit (from Batman)
         if model_x is not None and model_y is not None:
+            model_color = '#00E5FF' if theme == 'dark' else '#00BFFF'
             fig.add_trace(go.Scatter(
                 x=model_x, y=model_y, mode='lines', 
-                line=dict(color='cyan', width=3), name='Transit Model'
+                line=dict(color=model_color, width=3), name='Transit Model'
             ))
 
-        fig = PlotStyle.apply_dark_theme(fig, xlabel, ylabel)
+        fig = PlotStyle.apply_theme(fig, xlabel, ylabel, theme=theme)
         fig.update_layout(title=title)
-        
         return PlotStyle.to_html(fig)
 
     @staticmethod
     def plot_periodogram(x: np.ndarray, y: np.ndarray, title: str = "Periodogram",
-                         xaxis_type: str = 'period') -> str:
+                         xaxis_type: str = 'period', theme: str = 'dark') -> str:
         """
         Plots the Box Least Squares (BLS) periodogram power spectrum.
         """
@@ -143,60 +147,55 @@ class TransitPlotter:
             xlabel, logx = "Period [day]", True
 
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=x, y=y, mode='lines', 
-            line=dict(color='orange'), name='Power'
-        ))
+        fig.add_trace(go.Scatter(x=x, y=y, mode='lines', line=dict(color='orange'), name='Power'))
 
-        fig = PlotStyle.apply_dark_theme(fig, xlabel, "Power", log_x=logx, log_y=False)
+        fig = PlotStyle.apply_theme(fig, xlabel, "Power", log_x=logx, log_y=False, theme=theme)
         fig.update_layout(title=title)
-        
         return PlotStyle.to_html(fig)
 
     @staticmethod
-    def plot_mcmc_traces(flat_samples: np.ndarray, labels: list) -> str:
+    def plot_mcmc_traces(flat_samples: np.ndarray, labels: list, theme: str = 'dark') -> str:
         """
-        Plots the raw trace of the MCMC walkers to verify convergence.
+        Plots the raw trace of the MCMC walkers.
         """
         ndim = len(labels)
-        # We reshape the flat samples back to (steps, walkers, dimensions) for plotting
-        # Note: In a real app, you might want to pass the unflattened chain directly here instead
-        # For simplicity, we assume we want to plot the distributions of the flat samples as histograms or simple lines
-        
         fig = make_subplots(rows=ndim, cols=1, shared_xaxes=True, subplot_titles=labels, vertical_spacing=0.05)
 
         for i in range(ndim):
             fig.add_trace(
-                go.Scatter(
-                    y=flat_samples[:, i], mode='lines',
-                    line=dict(width=0.5, color="orange"), opacity=0.5, showlegend=False
-                ),
+                go.Scatter(y=flat_samples[:, i], mode='lines', line=dict(width=0.5, color="orange"), opacity=0.5, showlegend=False),
                 row=i+1, col=1
             )
             fig.update_yaxes(title_text=labels[i], row=i+1, col=1)
 
+        template = "plotly_dark" if theme == 'dark' else "plotly_white"
+        font_color = "white" if theme == 'dark' else "#2C3E50"
+        
         fig.update_xaxes(title_text="Sample Step", row=ndim, col=1)
-        fig.update_layout(autosize=True, template="plotly_dark", title_text="MCMC Posterior Traces", height=800)
-
+        fig.update_layout(
+            autosize=True, template=template, title_text="MCMC Posterior Traces", height=800,
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color=font_color)
+        )
         return PlotStyle.to_html(fig)
 
     @staticmethod
-    def plot_mcmc_corner(flat_samples: np.ndarray, labels: list) -> str:
+    def plot_mcmc_corner(flat_samples: np.ndarray, labels: list, theme: str = 'dark') -> str:
         """
-        Generates a scatter matrix (corner plot) to show covariances between MCMC parameters.
+        Generates a scatter matrix (corner plot).
         """
         df = pd.DataFrame(flat_samples, columns=labels)
+        template = "plotly_dark" if theme == 'dark' else "plotly_white"
+        font_color = "white" if theme == 'dark' else "#2C3E50"
 
-        fig = px.scatter_matrix(
-            df, dimensions=labels, title="MCMC Posterior Distributions", template="plotly_dark"
-        )
+        fig = px.scatter_matrix(df, dimensions=labels, title="MCMC Posterior Distributions", template=template)
         fig.update_traces(diagonal_visible=True, marker=dict(opacity=0.3, size=2, color="orange"))
-        fig.update_layout(autosize=True, height=800)
-        
+        fig.update_layout(
+            autosize=True, height=800,
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color=font_color)
+        )
         return PlotStyle.to_html(fig)
-
-
-
 
 # ===========================================================
 # Population & Catalog Visualization
@@ -208,19 +207,11 @@ class CatalogPlotter:
     """
 
     def __init__(self):
-        """
-        Initializes the plotter and the theoretical mass-radius model loader.
-        """
         self.model_loader = MassRadiusModels()
 
     def _add_model_overlays(self, fig: go.Figure, x_col: str, y_col: str, overlay_models: list):
-        """
-        Internal helper: Draws theoretical mass-radius lines if the current axes match.
-        """
         if not overlay_models:
             return
-
-        # Models only make sense if the axes are Mass and Radius
         valid_axes = {("pl_bmasse", "pl_rade"), ("pl_rade", "pl_bmasse")}
         if (x_col, y_col) not in valid_axes:
             return
@@ -229,8 +220,6 @@ class CatalogPlotter:
             try:
                 model_df = self.model_loader.get_model_curve(model_key)
                 label = self.model_loader.get_model_label(model_key)
-                
-                # Determine which axis is mass and which is radius
                 x_model, y_model = model_df['mass'], model_df['radius']
                 if x_col == "pl_rade":
                     x_model, y_model = y_model, x_model
@@ -241,54 +230,41 @@ class CatalogPlotter:
                     hoverinfo='name', showlegend=True
                 ))
             except Exception as e:
-                # If a model fails to load, we skip it rather than crashing the whole graph
                 print(f"Warning: Failed to load model {model_key}: {e}")
 
     def plot_scatter(self, df: pd.DataFrame, x_col: str, y_col: str, 
                      color_by: str = None, highlight_planets: list = None, 
                      log_x: bool = False, log_y: bool = False, 
-                     overlay_models: list = None) -> str:
-        """
-        Generates a standard or color-mapped scatter plot of the planetary population.
-        """
-        # Resolve human readable labels
+                     overlay_models: list = None, theme: str = 'dark') -> str:
         x_label = PlotStyle.get_label(x_col)
         y_label = PlotStyle.get_label(y_col)
-        
-        # Ensure we don't plot NaNs for our primary axes
         clean_df = df.dropna(subset=[x_col, y_col]).copy()
         
         if log_x: clean_df = clean_df[clean_df[x_col] > 0]
         if log_y: clean_df = clean_df[clean_df[y_col] > 0]
 
         fig = go.Figure()
-
-        # 1. Base Scatter trace (with or without a color gradient)
-        marker_style = dict(opacity=0.8, size=6)
+        marker_line_color = 'rgba(255,255,255,0.4)' if theme == 'dark' else 'rgba(0,0,0,0.4)'
+        marker_style = dict(opacity=0.9, size=7, line=dict(width=0.5, color=marker_line_color))
         
         if color_by and color_by in clean_df.columns:
             clean_df = clean_df.dropna(subset=[color_by])
             color_label = PlotStyle.get_label(color_by)
             marker_style.update(dict(
-                color=clean_df[color_by],
-                colorscale='Viridis',
-                colorbar=dict(title=color_label, x=1.02, y=0.5, len=0.7),
-                showscale=True
+                color=clean_df[color_by], colorscale='Plasma',
+                colorbar=dict(title=color_label, x=1.02, y=0.5, len=0.7), showscale=True
             ))
             hovertemplate = f"<b>%{{text}}</b><br>{x_label}: %{{x}}<br>{y_label}: %{{y}}<br>{color_label}: %{{marker.color}}<extra></extra>"
         else:
-            marker_style.update(dict(color='#00BFFF'))
+            default_color = '#00E5FF' if theme == 'dark' else '#1E90FF'
+            marker_style.update(dict(color=default_color))
             hovertemplate = f"<b>%{{text}}</b><br>{x_label}: %{{x}}<br>{y_label}: %{{y}}<extra></extra>"
 
-        # Main planetary population
         fig.add_trace(go.Scatter(
-            x=clean_df[x_col], y=clean_df[y_col], 
-            mode='markers', text=clean_df['pl_name'],
-            name='Exoplanets', marker=marker_style,
-            hovertemplate=hovertemplate
+            x=clean_df[x_col], y=clean_df[y_col], mode='markers', text=clean_df['pl_name'],
+            name='Exoplanets', marker=marker_style, hovertemplate=hovertemplate
         ))
 
-        # 2. Highlight specific planets (e.g., Earth, Jupiter, or user-selected targets)
         if highlight_planets:
             for planet in highlight_planets:
                 hp = clean_df[clean_df['pl_name'] == planet]
@@ -296,46 +272,33 @@ class CatalogPlotter:
                     fig.add_trace(go.Scatter(
                         x=hp[x_col], y=hp[y_col], mode='markers+text',
                         text=[planet]*len(hp), textposition='top center', name=planet,
-                        marker=dict(symbol='star', size=14, color='red', line=dict(width=1, color='white')),
+                        marker=dict(symbol='star', size=16, color='#FF3366', line=dict(width=1, color='white')),
                         hovertemplate=f"<b>%{{text}}</b><br>{x_label}: %{{x}}<br>{y_label}: %{{y}}<extra></extra>"
                     ))
 
-        # 3. Add mass-radius theoretical curves if applicable
         self._add_model_overlays(fig, x_col, y_col, overlay_models)
-
-        # Apply formatting
-        fig = PlotStyle.apply_dark_theme(fig, x_label, y_label, log_x, log_y)
+        fig = PlotStyle.apply_theme(fig, x_label, y_label, log_x, log_y, theme)
         fig.update_layout(title=f"Exoplanet Distribution: {y_label} vs {x_label}")
-
         return PlotStyle.to_html(fig)
 
     def plot_density(self, df: pd.DataFrame, x_col: str, y_col: str, 
                      log_x: bool = False, log_y: bool = False, 
-                     cmap: str = 'YlOrRd', overlay_models: list = None) -> str:
-        """
-        Generates a 2D Gaussian density heatmap, overlaying the raw scatter points on top.
-        Excellent for visualizing highly congested datasets like the Kepler sample.
-        """
+                     cmap: str = 'YlOrRd', overlay_models: list = None, theme: str = 'dark') -> str:
         x_label = PlotStyle.get_label(x_col)
         y_label = PlotStyle.get_label(y_col)
-        
         clean_df = df.dropna(subset=[x_col, y_col]).copy()
+        
         if log_x: clean_df = clean_df[clean_df[x_col] > 0]
         if log_y: clean_df = clean_df[clean_df[y_col] > 0]
 
-        # Extract raw numpy arrays for histogram computation
         x_data, y_data = clean_df[x_col].to_numpy(), clean_df[y_col].to_numpy()
-        
-        # If the axes are logarithmic, we must compute the density map in log space
         x_hist = np.log10(x_data) if log_x else x_data
         y_hist = np.log10(y_data) if log_y else y_data
 
-        # Compute 2D Histogram and apply Gaussian smoothing
         bins = 100
         H, xedges, yedges = np.histogram2d(x_hist, y_hist, bins=bins)
         H = gaussian_filter(H, sigma=6)
 
-        # Transform bin edges back to normal space for plotting
         x_centers = (xedges[:-1] + xedges[1:]) / 2
         y_centers = (yedges[:-1] + yedges[1:]) / 2
         
@@ -343,22 +306,48 @@ class CatalogPlotter:
         if log_y: y_centers = 10**y_centers
 
         fig = go.Figure()
+        fig.add_trace(go.Heatmap(x=x_centers, y=y_centers, z=H.T, colorscale=cmap, opacity=0.8, name='Density', showscale=False))
 
-        # 1. Base Density Heatmap
-        fig.add_trace(go.Heatmap(
-            x=x_centers, y=y_centers, z=H.T, 
-            colorscale=cmap, opacity=0.8, name='Density', showscale=False
-        ))
-
-        # 2. Overlay faint scatter points for outliers
+        # Change dot color based on theme
+        dot_color = 'white' if theme == 'dark' else 'black'
         fig.add_trace(go.Scatter(
             x=x_data, y=y_data, mode='markers', text=clean_df['pl_name'],
-            name='Exoplanets', marker=dict(color='white', size=2, opacity=0.3),
+            name='Exoplanets', marker=dict(color=dot_color, size=2, opacity=0.3),
             hovertemplate=f"<b>%{{text}}</b><br>{x_label}: %{{x}}<br>{y_label}: %{{y}}<extra></extra>"
         ))
 
         self._add_model_overlays(fig, x_col, y_col, overlay_models)
-        fig = PlotStyle.apply_dark_theme(fig, x_label, y_label, log_x, log_y)
+        fig = PlotStyle.apply_theme(fig, x_label, y_label, log_x, log_y, theme)
         fig.update_layout(title=f"Population Density: {y_label} vs {x_label}")
+        return PlotStyle.to_html(fig)
 
+    def plot_histogram(self, df: pd.DataFrame, column: str, bins: int = 50, 
+                       log_x: bool = False, log_y: bool = False, color: str = None, theme: str = 'dark') -> str:
+        label = PlotStyle.get_label(column)
+        clean_df = df.dropna(subset=[column]).copy()
+        
+        if log_x: clean_df = clean_df[clean_df[column] > 0]
+            
+        fig = go.Figure()
+        min_val, max_val = clean_df[column].min(), clean_df[column].max()
+        if log_x:
+            bin_edges = np.logspace(np.log10(min_val), np.log10(max_val), bins + 1)
+        else:
+            bin_edges = np.linspace(min_val, max_val, bins + 1)
+            
+        counts, edges = np.histogram(clean_df[column], bins=bin_edges)
+        centers = (edges[:-1] + edges[1:]) / 2
+        widths = np.diff(edges)
+        
+        bar_color = color if color else ('#00E5FF' if theme == 'dark' else '#1E90FF')
+        border_color = 'black' if theme == 'dark' else 'white'
+        
+        fig.add_trace(go.Bar(
+            x=centers, y=counts, width=widths, name='Count',
+            marker=dict(color=bar_color, line=dict(color=border_color, width=1)),
+            hovertemplate=f"<b>{label}</b>: %{{x}}<br><b>Count</b>: %{{y}}<extra></extra>"
+        ))
+        
+        fig = PlotStyle.apply_theme(fig, label, "Count", log_x=log_x, log_y=log_y, theme=theme)
+        fig.update_layout(title=f"Distribution of {label}", barmode='relative')
         return PlotStyle.to_html(fig)

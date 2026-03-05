@@ -127,24 +127,33 @@ class LightCurveAnalyzer:
         
         return self
 
-    def get_mcmc_data(self) -> tuple:
+    def get_mcmc_data(self, folded: bool = True) -> tuple:
         """
         Extracts the raw numpy arrays needed by the Emcee and Batman packages.
         
+        Args:
+            folded (bool): If True, returns the phase-folded data. If False, returns the raw un-folded data.
+            
         Returns:
-            tuple: (time_array, flux_array, flux_error_array, period)
+            tuple: (time_array, flux_array, flux_error_array, best_period, epoch_time_t0)
         """
-        if self.folded_lc is None:
-            raise ValueError("No folded lightcurve available. Call fold_lightcurve() first.")
+        if folded:
+            if self.folded_lc is None:
+                raise ValueError("No folded lightcurve available. Call fold_lightcurve() first.")
+            lc = self.folded_lc
+        else:
+            if self.clean_lc is None:
+                raise ValueError("No clean lightcurve available. Call download_and_clean() first.")
+            lc = self.clean_lc
 
         # We use Julian Days (.jd) for time as it is standard for transit modeling
-        time_jd = self.folded_lc.time.jd
-        flux_val = self.folded_lc.flux.value
+        time_jd = lc.time.jd
+        flux_val = lc.flux.value
         
         # If the telescope didn't provide error margins, we estimate it as 1% of the median flux
-        if self.folded_lc.flux_err is not None:
-            flux_err = self.folded_lc.flux_err.value
+        if lc.flux_err is not None:
+            flux_err = lc.flux_err.value
         else:
             flux_err = np.full_like(flux_val, np.median(flux_val) * 0.01)
 
-        return time_jd, flux_val, flux_err, self.best_period
+        return time_jd, flux_val, flux_err, self.best_period, self.epoch_time

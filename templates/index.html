@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block main %}
+    {# Layout: static/css/style.css (@768), templates/base.html #}
+    <main class="page-home" id="main-content">
+      <section class="hero hero--fullscreen" aria-label="Introduction">
+        <p class="hero-eyebrow" data-i18n="hero_eyebrow">For curious observers</p>
+        <h1 class="hero-title" data-i18n="hero_title">Explore exoplanets visually</h1>
+        <p class="hero-subtitle" data-i18n="hero_subtitle">
+          Search worlds beyond the solar system, see how they compare, and follow real mission light curves.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-cta" href="/#analyse"><span data-i18n="btn_analyse">Analyse</span></a>
+          <a class="btn btn-cta" href="/#discover"><span data-i18n="btn_discover">Discover</span></a>
+        </div>
+        <a class="hero-scroll-hint" href="#about" data-i18n-aria="hero_scroll_aria" aria-label="Scroll">
+          <i data-lucide="chevron-down"></i>
+        </a>
+      </section>
+
+      <section id="about" class="about" aria-labelledby="about-title">
+        <div class="about-inner">
+          <p class="about-eyebrow reveal-on-scroll" data-i18n="about_eyebrow">About</p>
+          <h2 id="about-title" class="about-title reveal-on-scroll" data-i18n="about_title">
+            About this project
+          </h2>
+          <p class="about-lead reveal-on-scroll" data-i18n="about_lead">
+            Exoplot gathers catalogs and mission light curves in one calm workspace.
+          </p>
+          <p class="about-lead about-lead--secondary reveal-on-scroll" data-i18n="project_lead">
+            Here you will soon find the story of Exoplot, technical notes, and short science explainers — this page is a placeholder for now.
+          </p>
+          <div class="about-cards">
+            <article class="about-card reveal-on-scroll">
+              <div class="about-card-icon" aria-hidden="true">
+                <i data-lucide="orbit"></i>
+              </div>
+              <h3 class="about-card-title" data-i18n="about_card_catalog_title">Browseable catalogs</h3>
+              <p class="about-card-body" data-i18n="about_card_catalog_body">
+                Filter published worlds and compare key measurements without losing the big picture.
+              </p>
+            </article>
+            <article class="about-card reveal-on-scroll">
+              <div class="about-card-icon" aria-hidden="true">
+                <i data-lucide="sparkles"></i>
+              </div>
+              <h3 class="about-card-title" data-i18n="about_card_curves_title">Light curves that read clearly</h3>
+              <p class="about-card-body" data-i18n="about_card_curves_body">
+                Follow transits and variability with a layout tuned for long time series.
+              </p>
+            </article>
+            <article class="about-card reveal-on-scroll">
+              <div class="about-card-icon" aria-hidden="true">
+                <i data-lucide="code-2"></i>
+              </div>
+              <h3 class="about-card-title" data-i18n="about_card_open_title">Transparent stack</h3>
+              <p class="about-card-body" data-i18n="about_card_open_body">
+                Open Python modules underneath — inspect, extend, and reproduce every figure.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+      <div id="analyse" class="page-anchor" aria-hidden="true"></div>
+      <div id="discover" class="page-anchor" aria-hidden="true"></div>
+    </main>
+{% endblock %}

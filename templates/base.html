@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script>
+      (function () {
+        try {
+          var th = localStorage.getItem("exoplot-theme");
+          if (th === "light") document.documentElement.setAttribute("data-theme", "light");
+        } catch (e) {}
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Explore exoplanet data visually: catalogs, light curves, and clear plots in one place."
+    />
+    <title data-i18n="meta_title">Exoplot</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+    {% block head_extra %}{% endblock %}
+  </head>
+  <body>
+    <canvas id="stars-canvas" aria-hidden="true"></canvas>
+
+    <div class="site-header-wrap">
+      <header class="site-header">
+        <a class="brand-lockup" href="/" {% if active == 'home' %}aria-current="page"{% endif %}>
+          <span class="brand-mark">
+            <span class="brand-logo-chip">
+              <img
+                class="brand-logo-img"
+                src="/static/images/logo.png"
+                width="72"
+                height="72"
+                alt=""
+                decoding="async"
+              />
+            </span>
+            <span class="brand-logo-credit" data-i18n="logo_credit">made by A. Wittmann</span>
+          </span>
+          <span class="brand-wordmark">Exoplot</span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/" {% if active == 'home' %}class="is-active"{% endif %} data-i18n="nav_home">Home</a>
+          <a href="/#analyse" data-i18n="nav_analyse">Analyse</a>
+          <a href="/#discover" data-i18n="nav_discover">Discover</a>
+        </nav>
+        <div class="header-end">
+          <div class="header-iconrow" aria-label="External resources">
+            <a
+              class="header-icon-link"
+              href="https://github.com/SimonWtmn/Exoplot_ENS"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-i18n-aria="aria_github"
+              aria-label="GitHub"
+              ><i data-lucide="github"></i
+            ></a>
+            <a
+              id="header-linkedin"
+              class="header-icon-link"
+              href="https://www.linkedin.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              hidden
+              data-i18n-aria="aria_linkedin"
+              aria-label="LinkedIn"
+              ><i data-lucide="linkedin"></i
+            ></a>
+            <a
+              class="header-icon-link"
+              href="https://docs.lightkurve.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-i18n-aria="aria_lightkurve"
+              aria-label="Lightkurve"
+              ><i data-lucide="book-open"></i
+            ></a>
+            <a
+              class="header-icon-link"
+              href="https://exoplanetarchive.ipac.caltech.edu/"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-i18n-aria="aria_nea"
+              aria-label="NASA Exoplanet Archive"
+              ><i data-lucide="globe"></i
+            ></a>
+          </div>
+          <button
+            type="button"
+            id="theme-toggle"
+            class="header-toggle-btn"
+            data-i18n-aria="theme_toggle_aria"
+            aria-label="Theme"
+            aria-pressed="true"
+          >
+            <i data-lucide="moon" class="theme-toggle-icon theme-toggle-icon--when-dark"></i>
+            <i data-lucide="sun" class="theme-toggle-icon theme-toggle-icon--when-light"></i>
+          </button>
+          <select id="lang-select" class="header-lang-select header-lang-select--desktop" aria-label="Language"></select>
+          <button
+            type="button"
+            id="header-menu-toggle"
+            class="header-menu-btn"
+            aria-expanded="false"
+            aria-controls="header-mobile-panel"
+            data-i18n-aria="menu_toggle_aria"
+            aria-label="Menu"
+          >
+            <i data-lucide="menu" class="header-menu-icon header-menu-icon--closed"></i>
+            <i data-lucide="x" class="header-menu-icon header-menu-icon--open"></i>
+          </button>
+        </div>
+      </header>
+
+      <div
+        id="header-mobile-panel"
+        class="header-mobile-panel"
+        role="region"
+        aria-label="Menu"
+        aria-hidden="true"
+      >
+        <div class="header-mobile-panel-inner">
+          <nav class="header-mobile-nav" aria-label="Primary">
+            <a href="/" {% if active == 'home' %}class="is-active"{% endif %} data-i18n="nav_home">Home</a>
+            <a href="/#analyse" data-i18n="nav_analyse">Analyse</a>
+            <a href="/#discover" data-i18n="nav_discover">Discover</a>
+          </nav>
+          <div class="header-mobile-external" aria-label="External resources">
+            <a
+              class="header-mobile-icon-link"
+              href="https://github.com/SimonWtmn/Exoplot_ENS"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-i18n-aria="aria_github"
+              aria-label="GitHub"
+              ><i data-lucide="github"></i
+            ></a>
+            <a
+              id="header-mobile-linkedin"
+              class="header-mobile-icon-link"
+              href="https://www.linkedin.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              hidden
+              data-i18n-aria="aria_linkedin"
+              aria-label="LinkedIn"
+              ><i data-lucide="linkedin"></i
+            ></a>
+            <a
+              class="header-mobile-icon-link"
+              href="https://docs.lightkurve.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-i18n-aria="aria_lightkurve"
+              aria-label="Lightkurve"
+              ><i data-lucide="book-open"></i
+            ></a>
+            <a
+              class="header-mobile-icon-link"
+              href="https://exoplanetarchive.ipac.caltech.edu/"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-i18n-aria="aria_nea"
+              aria-label="NASA Exoplanet Archive"
+              ><i data-lucide="globe"></i
+            ></a>
+          </div>
+          <div class="header-mobile-lang">
+            <span class="header-mobile-lang-label" data-i18n="footer_lang">Language</span>
+            <select id="lang-select-mobile" class="header-lang-select header-lang-select--mobile" aria-label="Language"></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% block main %}{% endblock %}
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <p class="footer-heading" data-i18n="footer_resources">Useful links</p>
+        <ul class="footer-linklist footer-linklist--row">
+          <li>
+            <a
+              href="https://github.com/SimonWtmn/Exoplot_ENS"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-i18n="link_github"
+              >GitHub</a
+            >
+          </li>
+          <li>
+            <a
+              id="footer-linkedin"
+              href="https://www.linkedin.com/in/simon-wittmann-47499a283/"
+              target="_blank"
+              rel="noopener noreferrer"
+              hidden
+              data-i18n="link_linkedin"
+              >LinkedIn</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://exoplanetarchive.ipac.caltech.edu/"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-i18n="link_nea"
+              >NASA Exoplanet Archive</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://lightkurve.github.io/lightkurve/"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-i18n="link_lightkurve"
+              >Lightkurve</a
+            >
+          </li>
+        </ul>
+        <p class="footer-credit" data-i18n="footer_credit">Made by Simon Wittmann</p>
+      </div>
+    </footer>
+
+    <script>
+      window.EXOPLOT_SITE_CONFIG = { linkedinProfile: "" };
+    </script>
+    <script src="/static/js/i18n.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"
+      crossorigin="anonymous"
+      defer
+    ></script>
+    <script src="/static/js/main.js" defer></script>
+    {% block scripts_extra %}{% endblock %}
+  </body>
+</html>

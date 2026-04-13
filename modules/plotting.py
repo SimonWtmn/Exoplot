@@ -182,70 +182,78 @@ class TransitPlotter:
     @staticmethod
     def plot_mcmc_corner(flat_samples: np.ndarray, labels: list, theme: str = 'dark') -> str:
         """
-        Generates a professional astronomical corner plot with 1D histograms 
+        Generates a professional astronomical corner plot with 1D histograms
         on the diagonal and 2D density contours on the off-diagonals.
+        Tick labels are rotated and font sizes are reduced to prevent overlap.
         """
         ndim = len(labels)
         is_dark = (theme == 'dark')
-        
-        # Colors based on theme
-        main_color = '#00E5FF' if is_dark else '#1E90FF' # Cyan or Deep Blue
+
+        main_color = '#00E5FF' if is_dark else '#1E90FF'
         line_color = 'white' if is_dark else 'black'
         contour_colorscale = 'Blues' if not is_dark else 'Blues_r'
         template = "plotly_dark" if is_dark else "plotly_white"
         font_color = "white" if is_dark else "#2C3E50"
 
-        # Create an NxN subplot grid
+        spacing = max(0.04, 0.12 / ndim)
         fig = make_subplots(
-            rows=ndim, cols=ndim, 
+            rows=ndim, cols=ndim,
             shared_xaxes=False, shared_yaxes=False,
-            horizontal_spacing=0.03, vertical_spacing=0.03
+            horizontal_spacing=spacing, vertical_spacing=spacing,
         )
+
+        tick_font_size = max(7, 11 - ndim)
+        label_font_size = max(9, 13 - ndim)
 
         for i in range(ndim):
             for j in range(i + 1):
                 x_data = flat_samples[:, j]
-                
+
                 if i == j:
-                    # Diagonal: 1D Histogram
                     fig.add_trace(
                         go.Histogram(x=x_data, nbinsx=30, marker_color=main_color, showlegend=False),
                         row=i+1, col=j+1
                     )
-                    # Add vertical lines for 16th, 50th, and 84th percentiles
                     q16, q50, q84 = np.percentile(x_data, [16, 50, 84])
                     for q in [q16, q50, q84]:
-                        fig.add_vline(x=q, line_dash="dash", line_color=line_color, line_width=1, row=i+1, col=j+1)
+                        fig.add_vline(x=q, line_dash="dash", line_color=line_color,
+                                      line_width=1, row=i+1, col=j+1)
                 else:
-                    # Off-diagonal: 2D Density Contour
                     y_data = flat_samples[:, i]
                     fig.add_trace(
                         go.Histogram2dContour(
-                            x=x_data, y=y_data, colorscale=contour_colorscale, 
+                            x=x_data, y=y_data, colorscale=contour_colorscale,
                             showscale=False, ncontours=6, line=dict(width=1.5)
                         ),
                         row=i+1, col=j+1
                     )
-                
-                # Clean up axis labels (only show them on the outer edges of the grid)
+
                 if i == ndim - 1:
-                    fig.update_xaxes(title_text=labels[j], row=i+1, col=j+1)
+                    fig.update_xaxes(
+                        title_text=labels[j], title_font_size=label_font_size,
+                        tickfont_size=tick_font_size, tickangle=45,
+                        nticks=5, row=i+1, col=j+1)
                 else:
                     fig.update_xaxes(showticklabels=False, row=i+1, col=j+1)
-                    
+
                 if j == 0 and i != 0:
-                    fig.update_yaxes(title_text=labels[i], row=i+1, col=j+1)
+                    fig.update_yaxes(
+                        title_text=labels[i], title_font_size=label_font_size,
+                        tickfont_size=tick_font_size, nticks=5,
+                        row=i+1, col=j+1)
                 else:
                     fig.update_yaxes(showticklabels=False, row=i+1, col=j+1)
 
+        side = max(600, 200 * ndim)
         fig.update_layout(
-            autosize=True, height=800, width=800,
+            autosize=False, height=side, width=side,
             template=template,
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color=font_color),
-            title_text="MCMC Posterior Distributions"
+            font=dict(color=font_color, size=tick_font_size),
+            title_text="MCMC Posterior Distributions",
+            margin=dict(l=60, r=30, t=60, b=60),
         )
-        
+
         return PlotStyle.to_html(fig)
 
 # ===========================================================

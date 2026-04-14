@@ -355,6 +355,8 @@ _STRINGS: dict[str, dict[str, str]] = {
     },
 }
 
+_REFERENCE_KEYS = frozenset(_STRINGS["en"].keys())
+
 _current_locale = "en"
 
 _UNICODE_TO_LATEX = {
@@ -368,10 +370,17 @@ _LATEX_INCOMPATIBLE_LOCALES = {"ja", "zh", "ko", "ru"}
 
 
 def set_locale(code: str):
-    """Set the default locale for subsequent t() calls."""
+    """Set the default locale for subsequent t() calls.
+    
+    Raises:
+        ValueError: If *code* is not among the supported locales.
+    """
     global _current_locale
-    if code in _STRINGS:
-        _current_locale = code
+    if code not in _STRINGS:
+        raise ValueError(
+            f"Unknown locale '{code}'. Supported: {', '.join(_STRINGS)}"
+        )
+    _current_locale = code
 
 
 def get_locale() -> str:
@@ -416,4 +425,10 @@ def t(key: str, locale: str | None = None, latex: bool = False,
 
 
 def available_locales() -> list[str]:
+    """Return the list of supported locale codes."""
     return list(_STRINGS.keys())
+
+
+def available_keys() -> list[str]:
+    """Return the list of all translation keys (based on the English reference)."""
+    return sorted(_REFERENCE_KEYS)

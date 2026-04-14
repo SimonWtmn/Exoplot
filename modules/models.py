@@ -5,7 +5,7 @@ Provides the `MassRadiusModels` class to safely load and retrieve theoretical
 mass-radius relationship curves (e.g., Zeng, Marcus) for plot overlays.
 
 Author: S. Wittmann
-Repository: https://github.com/SimonWtmn/Exoplot_ENS
+Repository: https://github.com/SimonWtmn/Exoplot
 """
 
 import pandas as pd
@@ -21,11 +21,11 @@ class MassRadiusModels:
     """
 
     def __init__(self):
-        """
-        Initializes the model loader.
-        """
         self.catalog = MODEL_CATALOG
         self.models_directory = MODELS_DIR
+
+    def __repr__(self):
+        return f"MassRadiusModels(n_models={len(self.catalog)}, dir='{self.models_directory}')"
 
     def list_available_models(self):
         """
@@ -54,7 +54,7 @@ class MassRadiusModels:
         specific reading instructions if provided in the catalog.
         """
         if key not in self.catalog:
-            raise KeyError(f"Invalid model key '{key}'.")
+            raise KeyError(f"Invalid model key '{key}'. Use list_available_models() to see valid keys.")
 
         # Extract file info
         model_info = self.catalog[key]
@@ -85,9 +85,8 @@ class MassRadiusModels:
         except Exception as e:
             raise ValueError(f"Failed to read file {filename}: {e}")
             
-        # Ensure we don't have stray string headers in our data rows
-        if isinstance(df.iloc[0, 0], str):
-            df = df.iloc[1:].copy()
+        # Coerce any stray string values left over from ambiguous headers
+        if df.iloc[:, 0].dtype == object:
             df = df.apply(pd.to_numeric, errors='coerce')
 
         # Standardize the output

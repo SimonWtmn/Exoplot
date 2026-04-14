@@ -5,7 +5,7 @@ Provides the `ExoplanetCatalog` class to load, manage, and filter exoplanetary d
 using an object-oriented approach and method chaining.
 
 Author: S. Wittmann
-Repository: https://github.com/SimonWtmn/Exoplot_ENS
+Repository: https://github.com/SimonWtmn/Exoplot
 """
 
 import pandas as pd
@@ -44,6 +44,11 @@ class ExoplanetCatalog:
 
         self.original_df = self._load_data(file_path)
         self.df = self.original_df.copy()
+
+    def __repr__(self):
+        return (f"ExoplanetCatalog(name='{self.name}', "
+                f"rows={len(self.df)}/{len(self.original_df)}, "
+                f"cols={self.df.shape[1]})")
 
     def _load_data(self, path: Path):
         """
@@ -220,11 +225,14 @@ class ExoplanetCatalog:
         self._apply_range('pl_dens', density_min, density_max)
         self._apply_range('pl_eqt', eqt_min, eqt_max)
 
-        # Calculate and filter by Dyson sphere temperature approximation if required
         if tdyson_min is not None or tdyson_max is not None:
-            # We calculate this column on the fly based on existing stellar/orbital parameters
-            self.df['pl_tdyson'] = self.df['st_teff'] * ((self.df['st_rad'] * 0.00465) / self.df['pl_orbsmax'])**0.5
-            self._apply_range('pl_tdyson', tdyson_min, tdyson_max)
+            tdyson = self.df['st_teff'] * ((self.df['st_rad'] * 0.00465) / self.df['pl_orbsmax'])**0.5
+            mask = tdyson.notna()
+            if tdyson_min is not None:
+                mask &= tdyson >= tdyson_min
+            if tdyson_max is not None:
+                mask &= tdyson <= tdyson_max
+            self.df = self.df[mask]
             
         return self
 
@@ -251,8 +259,9 @@ class ExoplanetCatalog:
 
     def filter_fulton_gap(self):
         """
-        Applies the specific empirical Fulton Gap cutoff threshold for planetary radius 
-        relative to stellar effective temperature.
+        Removes evolved stars (giants/subgiants) by enforcing a main-sequence
+        stellar-radius envelope derived from effective temperature.
+        Stars with missing Teff or radius data are kept (benefit of the doubt).
         """
         mask_valid = self.df['st_teff'].notna() & self.df['st_rad'].notna()
         

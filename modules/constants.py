@@ -1,11 +1,11 @@
 """
 Constants and Configurations
 --------------------------
-Provides all static variables, mappings, catalogs, and configuration parameters
-used across the Exoplot application.
+Provides all static variables, mappings, catalogs, and 
+configuration parameters used across the Exoplot application.
 
 Author: S. Wittmann
-Repository: https://github.com/SimonWtmn/Exoplot_ENS
+Repository: https://github.com/SimonWtmn/Exoplot
 """
 
 from pathlib import Path
@@ -14,7 +14,6 @@ from pathlib import Path
 # ===========================================================
 # Directory Paths
 # ===========================================================
-# We use pathlib to dynamically find the paths relative to this specific file.
 BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data"
 MODELS_DIR = DATA_DIR / "theoretical_models"
@@ -25,11 +24,12 @@ def _get_latest_dataset(prefix: str, directory: Path, extension: str = ".csv") -
     and returns the one with the latest date/alphabetical sort.
     """
     if not directory.exists():
-        return directory / f"{prefix}{extension}" # Fallback
+        return directory / f"{prefix}{extension}"
+        
     matching_files = list(directory.glob(f"{prefix}*{extension}"))
     if not matching_files:
         return directory / f"{prefix}{extension}"
-    matching_files.sort(reverse=True)
+    matching_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
     
     return matching_files[0]
 
@@ -73,7 +73,7 @@ LABEL_MAP = {
     'st_met': "Metallicity [dex]",
     'st_metratio': "Metallicity Ratio",
     "st_lum": "Luminosity [log(L<sub>⊙</sub>)]",
-    'st_logg': "Surface Gravity [cm/s²]",
+    'st_logg': "Surface Gravity [log(cm/s²)]",
     'st_age': "Age [Gyr]",
     'st_dens': "Stellar Density [g/cm³]",
     'st_vsin': "Rotational Velocity [km/s]",

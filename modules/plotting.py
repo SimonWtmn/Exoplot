@@ -1,260 +1,142 @@
 """
-Interactive Plotting Utilities
-------------------------------
-Provides `TransitPlotter` and `CatalogPlotter` classes to generate responsive 
-Plotly HTML figures for both the Exoplanet Catalog and individual transit fits.
+Publication-Quality Plotting Utilities
+--------------------------------------
+Provides `PlotStyle`, `CatalogPlotter`, and `TransitPlotter` classes built
+on Matplotlib for generating print-ready figures of exoplanet populations,
+lightcurves, periodograms, and MCMC diagnostics.
+
+All methods return ``(fig, axes)`` tuples so the caller can display inline,
+tweak further, or save to any format.
 
 Author: S. Wittmann
-Repository: https://github.com/SimonWtmn/Exoplot_ENS
+Repository: https://github.com/SimonWtmn/Exoplot
 """
+
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+import matplotlib.colors as mcolors
+import matplotlib.gridspec as gridspec
+from matplotlib.lines import Line2D
 from scipy import stats
 from scipy.ndimage import gaussian_filter
 
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
-from plotly.colors import DEFAULT_PLOTLY_COLORS
-
 from .constants import LABEL_MAP
 from .models import MassRadiusModels
+
 
 # ===========================================================
 # Base Styling Configuration
 # ===========================================================
 
+_PALETTE = {
+    "primary":    "#2980b9",
+    "secondary":  "#e67e22",
+    "accent":     "#e74c3c",
+    "highlight":  "#c0392b",
+    # Light-curve panels (match ``modules.reports`` DVR style)
+    "data":       "#2c3e50",
+    "error":      "#bdc3c7",
+    "model_cycle": [
+        "#e74c3c", "#2980b9", "#27ae60", "#8e44ad",
+        "#f39c12", "#1abc9c", "#d35400", "#2c3e50",
+    ],
+}
+
+
 class PlotStyle:
     """
-    A purely static utility class to ensure consistent styling, fonts, 
-    and HTML conversion across all plots in the application.
+    Static utility for consistent, publication-quality Matplotlib styling
+    with LaTeX rendering by default (Computer Modern Roman).
+    Call ``PlotStyle.configure()`` once at the start of a session.
     """
 
-    @staticmethod
-    def to_html(fig: go.Figure) -> str:
-        """
-        Converts a Plotly Figure object into a lightweight, embeddable HTML string.
-        Includes the Plotly.js library from the CDN to keep the output string small.
-        """
-        return fig.to_html(full_html=False, include_plotlyjs='cdn', config={'responsive': True})
+    _configured = False
 
     @staticmethod
-    def apply_theme(fig: go.Figure, x_label: str, y_label: str, 
-                    log_x: bool = False, log_y: bool = False, theme: str = 'dark') -> go.Figure:
-        """
-        Applies a consistent theme (dark or light), gridlines, and axis scaling to a figure.
-        """
-        is_dark = (theme == 'dark')
-        
-        # Define dynamic colors based on the chosen theme
-        font_color = "white" if is_dark else "#2C3E50"
-        grid_color = 'rgba(255,255,255,0.1)' if is_dark else 'rgba(0,0,0,0.1)'
-        line_color = 'white' if is_dark else '#2C3E50'
-        bg_color = 'rgba(68,68,68,0.5)' if is_dark else 'rgba(255,255,255,0.8)'
-        template = 'plotly_dark' if is_dark else 'plotly_white'
+    def configure(*, usetex: bool = True, font_family: str = "serif",
+                  base_size: float = 10, dpi: int = 500):
+        """Apply global rcParams for publication figures.
 
-        fig.update_layout(
-            font=dict(family="Inter, sans-serif", size=14, color=font_color),
-            xaxis=dict(
-                title=x_label, 
-                type='log' if log_x else 'linear',
-                showgrid=True, gridcolor=grid_color, 
-                showline=True, linecolor=line_color, mirror=True
-            ),
-            yaxis=dict(
-                title=y_label, 
-                type='log' if log_y else 'linear',
-                showgrid=True, gridcolor=grid_color, 
-                showline=True, linecolor=line_color, mirror=True
-            ),
-            margin=dict(l=80, r=80, t=80, b=80), 
-            template=template,
-            paper_bgcolor='rgba(0,0,0,0)', 
-            plot_bgcolor='rgba(0,0,0,0)',
-            legend=dict(bgcolor=bg_color, bordercolor=line_color, borderwidth=1)
-        )
-        return fig
+        LaTeX is enabled by default for crisp typesetting.  Pass
+        ``usetex=False`` to fall back to Matplotlib's mathtext engine.
+        """
+        plt.rcParams.update({
+            "font.family": font_family,
+            "font.size": base_size,
+            "axes.labelsize": base_size + 1,
+            "axes.titlesize": base_size + 2,
+            "xtick.labelsize": base_size - 1,
+            "ytick.labelsize": base_size - 1,
+            "legend.fontsize": base_size - 1,
+            "legend.framealpha": 0.85,
+            "legend.edgecolor": "0.7",
+            "lines.linewidth": 1.4,
+            "lines.markersize": 4,
+            "figure.dpi": dpi,
+            "savefig.dpi": dpi,
+            "savefig.bbox": "tight",
+            "axes.linewidth": 0.8,
+            "xtick.major.width": 0.6,
+            "ytick.major.width": 0.6,
+            "xtick.minor.width": 0.4,
+            "ytick.minor.width": 0.4,
+            "xtick.direction": "in",
+            "ytick.direction": "in",
+            "xtick.top": True,
+            "ytick.right": True,
+            "axes.grid": False,
+            "text.usetex": usetex,
+        })
+        if usetex:
+            plt.rcParams.update({
+                "font.serif": ["Computer Modern Roman"],
+                "text.latex.preamble": (
+                    r"\usepackage{amssymb}" "\n"
+                    r"\DeclareUnicodeCharacter{00B2}{\ensuremath{^2}}" "\n"
+                    r"\DeclareUnicodeCharacter{00B3}{\ensuremath{^3}}" "\n"
+                    r"\DeclareUnicodeCharacter{00B1}{\ensuremath{\pm}}" "\n"
+                    r"\DeclareUnicodeCharacter{03C3}{\ensuremath{\sigma}}" "\n"
+                    r"\DeclareUnicodeCharacter{03C4}{\ensuremath{\tau}}" "\n"
+                    r"\DeclareUnicodeCharacter{2212}{\ensuremath{-}}" "\n"
+                    r"\DeclareUnicodeCharacter{2295}{\ensuremath{\oplus}}" "\n"
+                    r"\DeclareUnicodeCharacter{2299}{\ensuremath{\odot}}"
+                ),
+            })
+        PlotStyle._configured = True
+
+    @staticmethod
+    def _ensure_configured():
+        if not PlotStyle._configured:
+            PlotStyle.configure()
 
     @staticmethod
     def get_label(col_name: str) -> str:
-        """
-        Translates a raw dataframe column name into a human-readable HTML label.
-        """
-        return LABEL_MAP.get(col_name, col_name)
+        """Translate a DataFrame column name into a human-readable label.
 
-# ===========================================================
-# Transit & MCMC Visualization
-# ===========================================================
-
-class TransitPlotter:
-    """
-    Generates plots related to individual star systems, lightcurves, and MCMC fitting.
-    """
+        HTML sub/superscript tags from the NEA label map are converted into
+        LaTeX math so they render correctly with both ``usetex=True`` and
+        Matplotlib's built-in mathtext engine.
+        """
+        import re
+        raw = LABEL_MAP.get(col_name, col_name)
+        raw = re.sub(r"<sub>(.*?)</sub>", r"$_{\1}$", raw)
+        raw = re.sub(r"<sup>(.*?)</sup>", r"$^{\1}$", raw)
+        return raw
 
     @staticmethod
-    def plot_lightcurve(x: np.ndarray, y: np.ndarray, err: np.ndarray = None, 
-                        model_x: np.ndarray = None, model_y: np.ndarray = None,
-                        title: str = "Light Curve", style: str = 'scatter', 
-                        bins: int = None, xlabel: str = "Time", ylabel: str = "Flux", 
-                        theme: str = 'dark') -> str:
-        """
-        Plots a standard or folded lightcurve, optionally overlaying a theoretical fit.
-        """
-        fig = go.Figure()
+    def polish(ax: plt.Axes, *, grid: bool = True, minor: bool = True):
+        """Apply final cosmetic touches to an Axes."""
+        if grid:
+            ax.grid(True, alpha=0.20, linewidth=0.5, color="#cccccc")
+        if minor:
+            ax.minorticks_on()
+            ax.tick_params(which="minor", length=2)
 
-        if style == 'line':
-            fig.add_trace(go.Scatter(x=x, y=y, mode='lines', line=dict(color='orange'), name='Data'))
-        elif style == 'errorbar' and err is not None:
-            fig.add_trace(go.Scatter(
-                x=x, y=y, mode='markers',
-                error_y=dict(type='data', array=err, visible=True, color='rgba(255, 165, 0, 0.4)'),
-                marker=dict(size=3, color='orange'), name='Data'
-            ))
-        else:
-            fig.add_trace(go.Scatter(x=x, y=y, mode='markers', marker=dict(size=3, color='orange'), name='Data'))
-
-        if bins:
-            bin_means, bin_edges, _ = stats.binned_statistic(x, y, statistic='mean', bins=bins)
-            bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
-            cyan_color = '#00E5FF' if theme == 'dark' else '#00BFFF'
-            fig.add_trace(go.Scatter(
-                x=bin_centers, y=bin_means, mode='markers+lines', 
-                marker=dict(size=6, color=cyan_color), line=dict(color=cyan_color), 
-                name=f'Binned (N={bins})'
-            ))
-
-        if model_x is not None and model_y is not None:
-            model_color = '#00E5FF' if theme == 'dark' else '#00BFFF'
-            fig.add_trace(go.Scatter(
-                x=model_x, y=model_y, mode='lines', 
-                line=dict(color=model_color, width=3), name='Transit Model'
-            ))
-
-        fig = PlotStyle.apply_theme(fig, xlabel, ylabel, theme=theme)
-        fig.update_layout(title=title)
-        return PlotStyle.to_html(fig)
-
-    @staticmethod
-    def plot_periodogram(x: np.ndarray, y: np.ndarray, title: str = "Periodogram",
-                         xaxis_type: str = 'period', theme: str = 'dark') -> str:
-        """
-        Plots the Box Least Squares (BLS) periodogram power spectrum.
-        """
-        if xaxis_type == 'frequency':
-            xlabel, logx = "Frequency [1/day]", False
-        else:
-            xlabel, logx = "Period [day]", True
-
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=x, y=y, mode='lines', line=dict(color='orange'), name='Power'))
-
-        fig = PlotStyle.apply_theme(fig, xlabel, "Power", log_x=logx, log_y=False, theme=theme)
-        fig.update_layout(title=title)
-        return PlotStyle.to_html(fig)
-
-    @staticmethod
-    def plot_mcmc_traces(flat_samples: np.ndarray, labels: list, theme: str = 'dark') -> str:
-        """
-        Plots the raw trace of the MCMC walkers.
-        """
-        ndim = len(labels)
-        fig = make_subplots(rows=ndim, cols=1, shared_xaxes=True, subplot_titles=labels, vertical_spacing=0.05)
-
-        for i in range(ndim):
-            fig.add_trace(
-                go.Scatter(y=flat_samples[:, i], mode='lines', line=dict(width=0.5, color="orange"), opacity=0.5, showlegend=False),
-                row=i+1, col=1
-            )
-            fig.update_yaxes(title_text=labels[i], row=i+1, col=1)
-
-        template = "plotly_dark" if theme == 'dark' else "plotly_white"
-        font_color = "white" if theme == 'dark' else "#2C3E50"
-        
-        fig.update_xaxes(title_text="Sample Step", row=ndim, col=1)
-        fig.update_layout(
-            autosize=True, template=template, title_text="MCMC Posterior Traces", height=800,
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color=font_color)
-        )
-        return PlotStyle.to_html(fig)
-
-    @staticmethod
-    def plot_mcmc_corner(flat_samples: np.ndarray, labels: list, theme: str = 'dark') -> str:
-        """
-        Generates a professional astronomical corner plot with 1D histograms
-        on the diagonal and 2D density contours on the off-diagonals.
-        Tick labels are rotated and font sizes are reduced to prevent overlap.
-        """
-        ndim = len(labels)
-        is_dark = (theme == 'dark')
-
-        main_color = '#00E5FF' if is_dark else '#1E90FF'
-        line_color = 'white' if is_dark else 'black'
-        contour_colorscale = 'Blues' if not is_dark else 'Blues_r'
-        template = "plotly_dark" if is_dark else "plotly_white"
-        font_color = "white" if is_dark else "#2C3E50"
-
-        spacing = max(0.04, 0.12 / ndim)
-        fig = make_subplots(
-            rows=ndim, cols=ndim,
-            shared_xaxes=False, shared_yaxes=False,
-            horizontal_spacing=spacing, vertical_spacing=spacing,
-        )
-
-        tick_font_size = max(7, 11 - ndim)
-        label_font_size = max(9, 13 - ndim)
-
-        for i in range(ndim):
-            for j in range(i + 1):
-                x_data = flat_samples[:, j]
-
-                if i == j:
-                    fig.add_trace(
-                        go.Histogram(x=x_data, nbinsx=30, marker_color=main_color, showlegend=False),
-                        row=i+1, col=j+1
-                    )
-                    q16, q50, q84 = np.percentile(x_data, [16, 50, 84])
-                    for q in [q16, q50, q84]:
-                        fig.add_vline(x=q, line_dash="dash", line_color=line_color,
-                                      line_width=1, row=i+1, col=j+1)
-                else:
-                    y_data = flat_samples[:, i]
-                    fig.add_trace(
-                        go.Histogram2dContour(
-                            x=x_data, y=y_data, colorscale=contour_colorscale,
-                            showscale=False, ncontours=6, line=dict(width=1.5)
-                        ),
-                        row=i+1, col=j+1
-                    )
-
-                if i == ndim - 1:
-                    fig.update_xaxes(
-                        title_text=labels[j], title_font_size=label_font_size,
-                        tickfont_size=tick_font_size, tickangle=45,
-                        nticks=5, row=i+1, col=j+1)
-                else:
-                    fig.update_xaxes(showticklabels=False, row=i+1, col=j+1)
-
-                if j == 0 and i != 0:
-                    fig.update_yaxes(
-                        title_text=labels[i], title_font_size=label_font_size,
-                        tickfont_size=tick_font_size, nticks=5,
-                        row=i+1, col=j+1)
-                else:
-                    fig.update_yaxes(showticklabels=False, row=i+1, col=j+1)
-
-        side = max(600, 200 * ndim)
-        fig.update_layout(
-            autosize=False, height=side, width=side,
-            template=template,
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            font=dict(color=font_color, size=tick_font_size),
-            title_text="MCMC Posterior Distributions",
-            margin=dict(l=60, r=30, t=60, b=60),
-        )
-
-        return PlotStyle.to_html(fig)
 
 # ===========================================================
 # Population & Catalog Visualization
@@ -262,151 +144,324 @@ class TransitPlotter:
 
 class CatalogPlotter:
     """
-    Generates macroscopic statistical plots comparing hundreds or thousands of exoplanets.
+    Generates publication-quality statistical plots for exoplanet populations.
+
+    Every public method returns ``(fig, ax)`` or ``(fig, axes)`` so the
+    caller can ``plt.show()`` or ``fig.savefig(...)`` as needed.
     """
 
     def __init__(self):
+        PlotStyle._ensure_configured()
         self.model_loader = MassRadiusModels()
 
-    def _add_model_overlays(self, fig: go.Figure, x_col: str, y_col: str, overlay_models: list):
+    def __repr__(self):
+        return "CatalogPlotter(backend='matplotlib')"
+
+    # ── private helpers ───────────────────────────────────────────
+
+    def _add_model_overlays(self, ax: plt.Axes, x_col: str, y_col: str,
+                            overlay_models: list | None):
         if not overlay_models:
             return
         valid_axes = {("pl_bmasse", "pl_rade"), ("pl_rade", "pl_bmasse")}
         if (x_col, y_col) not in valid_axes:
             return
 
+        colors = _PALETTE["model_cycle"]
         for i, model_key in enumerate(overlay_models):
             try:
-                model_df = self.model_loader.get_model_curve(model_key)
+                mdf = self.model_loader.get_model_curve(model_key)
                 label = self.model_loader.get_model_label(model_key)
-                x_model, y_model = model_df['mass'], model_df['radius']
+                xm, ym = mdf["mass"].values, mdf["radius"].values
                 if x_col == "pl_rade":
-                    x_model, y_model = y_model, x_model
-
-                fig.add_trace(go.Scatter(
-                    x=x_model, y=y_model, mode='lines', name=label,
-                    line=dict(dash='dash', width=2, color=DEFAULT_PLOTLY_COLORS[i % len(DEFAULT_PLOTLY_COLORS)]),
-                    hoverinfo='name', showlegend=True
-                ))
+                    xm, ym = ym, xm
+                ax.plot(xm, ym, ls="--", lw=1.8,
+                        color=colors[i % len(colors)], label=label, zorder=5)
             except Exception as e:
-                print(f"Warning: Failed to load model {model_key}: {e}")
+                print(f"Warning: could not load model '{model_key}': {e}")
 
-    def plot_scatter(self, df: pd.DataFrame, x_col: str, y_col: str, 
-                     color_by: str = None, highlight_planets: list = None, 
-                     log_x: bool = False, log_y: bool = False, 
-                     overlay_models: list = None, theme: str = 'dark') -> str:
-        x_label = PlotStyle.get_label(x_col)
-        y_label = PlotStyle.get_label(y_col)
-        clean_df = df.dropna(subset=[x_col, y_col]).copy()
-        
-        if log_x: clean_df = clean_df[clean_df[x_col] > 0]
-        if log_y: clean_df = clean_df[clean_df[y_col] > 0]
+    @staticmethod
+    def _clean(df: pd.DataFrame, cols: list, log_cols: list | None = None):
+        """Drop NaN rows and non-positive values for log-scaled columns."""
+        out = df.dropna(subset=cols).copy()
+        for c in (log_cols or []):
+            if c in out.columns:
+                out = out[out[c] > 0]
+        return out
 
-        fig = go.Figure()
-        marker_line_color = 'rgba(255,255,255,0.4)' if theme == 'dark' else 'rgba(0,0,0,0.4)'
-        marker_style = dict(opacity=0.9, size=7, line=dict(width=0.5, color=marker_line_color))
-        
-        if color_by and color_by in clean_df.columns:
-            clean_df = clean_df.dropna(subset=[color_by])
-            color_label = PlotStyle.get_label(color_by)
-            marker_style.update(dict(
-                color=clean_df[color_by], colorscale='Plasma',
-                colorbar=dict(title=color_label, x=1.02, y=0.5, len=0.7), showscale=True
-            ))
-            hovertemplate = f"<b>%{{text}}</b><br>{x_label}: %{{x}}<br>{y_label}: %{{y}}<br>{color_label}: %{{marker.color}}<extra></extra>"
+    # ── public methods ────────────────────────────────────────────
+
+    def plot_scatter(self, df: pd.DataFrame, x_col: str, y_col: str, *,
+                     color_by: str | None = None,
+                     highlight_planets: list | None = None,
+                     log_x: bool = False, log_y: bool = False,
+                     overlay_models: list | None = None,
+                     cmap: str = "plasma",
+                     figsize: tuple = (7, 5.5),
+                     title: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+        """Scatter plot with optional color mapping, model overlays, and highlights."""
+        PlotStyle._ensure_configured()
+
+        log_cols = []
+        if log_x: log_cols.append(x_col)
+        if log_y: log_cols.append(y_col)
+        cdf = self._clean(df, [x_col, y_col], log_cols)
+
+        fig, ax = plt.subplots(figsize=figsize)
+
+        scatter_kw = dict(s=18, alpha=0.75, edgecolors="0.3",
+                          linewidths=0.3, zorder=2, rasterized=True)
+
+        if color_by and color_by in cdf.columns:
+            cdf = cdf.dropna(subset=[color_by])
+            sc = ax.scatter(cdf[x_col], cdf[y_col], c=cdf[color_by],
+                            cmap=cmap, **scatter_kw)
+            cbar = fig.colorbar(sc, ax=ax, pad=0.02, fraction=0.046)
+            cbar.set_label(PlotStyle.get_label(color_by))
         else:
-            default_color = '#00E5FF' if theme == 'dark' else '#1E90FF'
-            marker_style.update(dict(color=default_color))
-            hovertemplate = f"<b>%{{text}}</b><br>{x_label}: %{{x}}<br>{y_label}: %{{y}}<extra></extra>"
-
-        fig.add_trace(go.Scatter(
-            x=clean_df[x_col], y=clean_df[y_col], mode='markers', text=clean_df['pl_name'],
-            name='Exoplanets', marker=marker_style, hovertemplate=hovertemplate
-        ))
+            ax.scatter(cdf[x_col], cdf[y_col],
+                       color=_PALETTE["primary"], **scatter_kw)
 
         if highlight_planets:
-            for planet in highlight_planets:
-                hp = clean_df[clean_df['pl_name'] == planet]
-                if not hp.empty:
-                    fig.add_trace(go.Scatter(
-                        x=hp[x_col], y=hp[y_col], mode='markers+text',
-                        text=[planet]*len(hp), textposition='top center', name=planet,
-                        marker=dict(symbol='star', size=16, color='#FF3366', line=dict(width=1, color='white')),
-                        hovertemplate=f"<b>%{{text}}</b><br>{x_label}: %{{x}}<br>{y_label}: %{{y}}<extra></extra>"
-                    ))
+            for name in highlight_planets:
+                hp = cdf[cdf["pl_name"] == name]
+                if hp.empty:
+                    continue
+                ax.scatter(hp[x_col], hp[y_col], marker="*", s=220, zorder=10,
+                           color=_PALETTE["accent"], edgecolors="k", linewidths=0.6)
+                ax.annotate(name, xy=(hp[x_col].iloc[0], hp[y_col].iloc[0]),
+                            xytext=(6, 6), textcoords="offset points",
+                            fontsize=8, fontweight="bold",
+                            color=_PALETTE["accent"])
 
-        self._add_model_overlays(fig, x_col, y_col, overlay_models)
-        fig = PlotStyle.apply_theme(fig, x_label, y_label, log_x, log_y, theme)
-        fig.update_layout(title=f"Exoplanet Distribution: {y_label} vs {x_label}")
-        return PlotStyle.to_html(fig)
+        self._add_model_overlays(ax, x_col, y_col, overlay_models)
 
-    def plot_density(self, df: pd.DataFrame, x_col: str, y_col: str, 
-                     log_x: bool = False, log_y: bool = False, 
-                     cmap: str = 'YlOrRd', overlay_models: list = None, theme: str = 'dark') -> str:
-        x_label = PlotStyle.get_label(x_col)
-        y_label = PlotStyle.get_label(y_col)
-        clean_df = df.dropna(subset=[x_col, y_col]).copy()
-        
-        if log_x: clean_df = clean_df[clean_df[x_col] > 0]
-        if log_y: clean_df = clean_df[clean_df[y_col] > 0]
+        if log_x: ax.set_xscale("log")
+        if log_y: ax.set_yscale("log")
+        ax.set_xlabel(PlotStyle.get_label(x_col))
+        ax.set_ylabel(PlotStyle.get_label(y_col))
+        ax.set_title(title or f"{PlotStyle.get_label(y_col)} vs {PlotStyle.get_label(x_col)}")
+        if overlay_models or highlight_planets:
+            ax.legend(loc="best", fontsize=8)
+        PlotStyle.polish(ax)
+        fig.tight_layout()
+        return fig, ax
 
-        x_data, y_data = clean_df[x_col].to_numpy(), clean_df[y_col].to_numpy()
-        x_hist = np.log10(x_data) if log_x else x_data
-        y_hist = np.log10(y_data) if log_y else y_data
+    def plot_density(self, df: pd.DataFrame, x_col: str, y_col: str, *,
+                     log_x: bool = False, log_y: bool = False,
+                     cmap: str = "YlOrRd", sigma: float = 6.0,
+                     bins: int = 100,
+                     overlay_models: list | None = None,
+                     show_points: bool = True,
+                     figsize: tuple = (7, 5.5),
+                     title: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+        """2-D Gaussian-smoothed density heatmap with optional point overlay."""
+        PlotStyle._ensure_configured()
 
-        bins = 100
-        H, xedges, yedges = np.histogram2d(x_hist, y_hist, bins=bins)
-        H = gaussian_filter(H, sigma=6)
+        log_cols = []
+        if log_x: log_cols.append(x_col)
+        if log_y: log_cols.append(y_col)
+        cdf = self._clean(df, [x_col, y_col], log_cols)
 
-        x_centers = (xedges[:-1] + xedges[1:]) / 2
-        y_centers = (yedges[:-1] + yedges[1:]) / 2
-        
-        if log_x: x_centers = 10**x_centers
-        if log_y: y_centers = 10**y_centers
+        xd = cdf[x_col].values
+        yd = cdf[y_col].values
+        xh = np.log10(xd) if log_x else xd
+        yh = np.log10(yd) if log_y else yd
 
-        fig = go.Figure()
-        fig.add_trace(go.Heatmap(x=x_centers, y=y_centers, z=H.T, colorscale=cmap, opacity=0.8, name='Density', showscale=False))
+        H, xe, ye = np.histogram2d(xh, yh, bins=bins)
+        H = gaussian_filter(H, sigma=sigma)
 
-        # Change dot color based on theme
-        dot_color = 'white' if theme == 'dark' else 'black'
-        fig.add_trace(go.Scatter(
-            x=x_data, y=y_data, mode='markers', text=clean_df['pl_name'],
-            name='Exoplanets', marker=dict(color=dot_color, size=2, opacity=0.3),
-            hovertemplate=f"<b>%{{text}}</b><br>{x_label}: %{{x}}<br>{y_label}: %{{y}}<extra></extra>"
-        ))
+        xc = (xe[:-1] + xe[1:]) / 2
+        yc = (ye[:-1] + ye[1:]) / 2
+        if log_x: xc = 10**xc
+        if log_y: yc = 10**yc
 
-        self._add_model_overlays(fig, x_col, y_col, overlay_models)
-        fig = PlotStyle.apply_theme(fig, x_label, y_label, log_x, log_y, theme)
-        fig.update_layout(title=f"Population Density: {y_label} vs {x_label}")
-        return PlotStyle.to_html(fig)
+        fig, ax = plt.subplots(figsize=figsize)
+        im = ax.pcolormesh(xc, yc, H.T, cmap=cmap, shading="auto",
+                           rasterized=True, zorder=1)
+        fig.colorbar(im, ax=ax, pad=0.02, fraction=0.046, label="Density")
 
-    def plot_histogram(self, df: pd.DataFrame, column: str, bins: int = 50, 
-                       log_x: bool = False, log_y: bool = False, color: str = None, theme: str = 'dark') -> str:
+        if show_points:
+            ax.scatter(xd, yd, s=1, alpha=0.15, color="k", zorder=2, rasterized=True)
+
+        self._add_model_overlays(ax, x_col, y_col, overlay_models)
+
+        if log_x: ax.set_xscale("log")
+        if log_y: ax.set_yscale("log")
+        ax.set_xlabel(PlotStyle.get_label(x_col))
+        ax.set_ylabel(PlotStyle.get_label(y_col))
+        ax.set_title(title or f"Population Density: {PlotStyle.get_label(y_col)} vs {PlotStyle.get_label(x_col)}")
+        PlotStyle.polish(ax, grid=False)
+        fig.tight_layout()
+        return fig, ax
+
+    def plot_histogram(self, df: pd.DataFrame, column: str, *,
+                       bins: int = 50,
+                       log_x: bool = False, log_y: bool = False,
+                       color: str | None = None,
+                       figsize: tuple = (7, 4.5),
+                       title: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+        """1-D distribution histogram."""
+        PlotStyle._ensure_configured()
+
+        cdf = self._clean(df, [column], [column] if log_x else None)
+        vals = cdf[column].values
         label = PlotStyle.get_label(column)
-        clean_df = df.dropna(subset=[column]).copy()
-        
-        if log_x: clean_df = clean_df[clean_df[column] > 0]
-            
-        fig = go.Figure()
-        min_val, max_val = clean_df[column].min(), clean_df[column].max()
+
         if log_x:
-            bin_edges = np.logspace(np.log10(min_val), np.log10(max_val), bins + 1)
+            bin_edges = np.logspace(np.log10(vals.min()), np.log10(vals.max()), bins + 1)
         else:
-            bin_edges = np.linspace(min_val, max_val, bins + 1)
-            
-        counts, edges = np.histogram(clean_df[column], bins=bin_edges)
-        centers = (edges[:-1] + edges[1:]) / 2
-        widths = np.diff(edges)
-        
-        bar_color = color if color else ('#00E5FF' if theme == 'dark' else '#1E90FF')
-        border_color = 'black' if theme == 'dark' else 'white'
-        
-        fig.add_trace(go.Bar(
-            x=centers, y=counts, width=widths, name='Count',
-            marker=dict(color=bar_color, line=dict(color=border_color, width=1)),
-            hovertemplate=f"<b>{label}</b>: %{{x}}<br><b>Count</b>: %{{y}}<extra></extra>"
-        ))
-        
-        fig = PlotStyle.apply_theme(fig, label, "Count", log_x=log_x, log_y=log_y, theme=theme)
-        fig.update_layout(title=f"Distribution of {label}", barmode='relative')
-        return PlotStyle.to_html(fig)
+            bin_edges = np.linspace(vals.min(), vals.max(), bins + 1)
+
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.hist(vals, bins=bin_edges,
+                color=color or _PALETTE["primary"],
+                edgecolor="white", linewidth=0.5, zorder=2)
+
+        if log_x: ax.set_xscale("log")
+        if log_y: ax.set_yscale("log")
+        ax.set_xlabel(label)
+        ax.set_ylabel("Count")
+        ax.set_title(title or f"Distribution of {label}")
+        PlotStyle.polish(ax)
+        fig.tight_layout()
+        return fig, ax
+
+
+# ===========================================================
+# Transit & MCMC Visualization
+# ===========================================================
+
+class TransitPlotter:
+    """
+    Generates publication-quality figures for individual transit analyses:
+    lightcurves, periodograms, MCMC traces, and corner plots.
+
+    All methods are static and return ``(fig, axes)``.
+    """
+
+    @staticmethod
+    def plot_lightcurve(x: np.ndarray, y: np.ndarray, *,
+                        err: np.ndarray | None = None,
+                        model_x: np.ndarray | None = None,
+                        model_y: np.ndarray | None = None,
+                        style: str = "scatter",
+                        n_bins: int | None = None,
+                        xlabel: str = "Time",
+                        ylabel: str = "Normalised flux",
+                        title: str = "Light curve",
+                        figsize: tuple = (8, 4)) -> tuple[plt.Figure, plt.Axes]:
+        """Plot a lightcurve with optional errors, optional binning, model overlay.
+
+        Styling matches the DVR report: dark grey points, light grey error bars,
+        red model.  Binning is **off** by default (set ``n_bins`` only if needed).
+        """
+        PlotStyle._ensure_configured()
+        fig, ax = plt.subplots(figsize=figsize)
+
+        if style == "line":
+            ax.plot(x, y, lw=0.75, alpha=0.75, color=_PALETTE["data"],
+                    zorder=2, rasterized=True, label="Data")
+        elif err is not None:
+            ax.errorbar(x, y, yerr=err, fmt=".", ms=1.8, alpha=0.45,
+                        color=_PALETTE["data"], ecolor=_PALETTE["error"],
+                        elinewidth=0.45, capsize=0, zorder=2, rasterized=True,
+                        label="Data")
+        else:
+            ax.scatter(x, y, s=4, alpha=0.45, color=_PALETTE["data"],
+                       edgecolors="none", zorder=2, rasterized=True, label="Data")
+
+        if n_bins:
+            bm, be, _ = stats.binned_statistic(x, y, statistic="mean", bins=n_bins)
+            bc = 0.5 * (be[1:] + be[:-1])
+            ax.plot(bc, bm, "o-", ms=3, lw=1.0, color=_PALETTE["primary"],
+                    zorder=4, label=f"Binned ({n_bins})")
+
+        if model_x is not None and model_y is not None:
+            ax.plot(model_x, model_y, lw=1.8, color=_PALETTE["accent"],
+                    zorder=5, label="Model")
+
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+        ax.legend(loc="best", fontsize=8)
+        PlotStyle.polish(ax)
+        fig.tight_layout()
+        return fig, ax
+
+    @staticmethod
+    def plot_periodogram(x: np.ndarray, y: np.ndarray, *,
+                         xaxis_type: str = "period",
+                         title: str = "BLS Periodogram",
+                         figsize: tuple = (8, 3.5)) -> tuple[plt.Figure, plt.Axes]:
+        """Plot a Box Least Squares periodogram."""
+        PlotStyle._ensure_configured()
+        fig, ax = plt.subplots(figsize=figsize)
+
+        ax.plot(x, y, lw=1.0, color=_PALETTE["primary"], zorder=2)
+
+        if xaxis_type == "frequency":
+            ax.set_xlabel("Frequency [1/day]")
+        else:
+            ax.set_xlabel("Period [days]")
+            ax.set_xscale("log")
+
+        ax.set_ylabel("Power")
+        ax.set_title(title)
+        PlotStyle.polish(ax)
+        fig.tight_layout()
+        return fig, ax
+
+    @staticmethod
+    def plot_mcmc_traces(flat_samples: np.ndarray, labels: list, *,
+                         title: str = "MCMC Walker Traces",
+                         figsize: tuple | None = None) -> tuple[plt.Figure, np.ndarray]:
+        """Plot the trace of each MCMC parameter."""
+        PlotStyle._ensure_configured()
+        ndim = len(labels)
+        if figsize is None:
+            figsize = (8, 1.8 * ndim)
+
+        fig, axes = plt.subplots(ndim, 1, figsize=figsize, sharex=True)
+        if ndim == 1:
+            axes = np.array([axes])
+
+        for i, ax in enumerate(axes):
+            ax.plot(flat_samples[:, i], lw=0.3, alpha=0.5,
+                    color=_PALETTE["primary"], rasterized=True)
+            ax.set_ylabel(labels[i], fontsize=9)
+            PlotStyle.polish(ax, minor=False)
+
+        axes[-1].set_xlabel("Sample step")
+        fig.suptitle(title, fontsize=12, fontweight="bold", y=1.01)
+        fig.tight_layout()
+        return fig, axes
+
+    @staticmethod
+    def plot_mcmc_corner(flat_samples: np.ndarray, labels: list, *,
+                         title: str = "Posterior Distributions",
+                         color: str | None = None) -> tuple[plt.Figure, np.ndarray]:
+        """Corner plot using the ``corner`` library.
+
+        Returns ``(fig, axes)`` where *axes* is the 2-D array of subplot axes.
+        """
+        PlotStyle._ensure_configured()
+        import corner
+
+        fig = corner.corner(
+            flat_samples, labels=labels,
+            quantiles=[0.16, 0.5, 0.84],
+            show_titles=True,
+            title_kwargs={"fontsize": 10},
+            label_kwargs={"fontsize": 10},
+            color=color or _PALETTE["primary"],
+            hist_kwargs={"linewidth": 1.0},
+            plot_datapoints=False,
+            plot_density=True,
+            smooth=1.0,
+            smooth1d=1.0,
+            hist_bin_factor=1.5,
+            quiet=True,
+        )
+        fig.suptitle(title, fontsize=13, fontweight="bold", y=1.02)
+        return fig, np.array(fig.axes)

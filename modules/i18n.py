@@ -11,6 +11,7 @@ Usage:
     t("report_title", "en")     # → "Transit Analysis Report"
 
 Author: S. Wittmann
+Repository: https://github.com/SimonWtmn/Exoplot
 """
 
 _STRINGS: dict[str, dict[str, str]] = {
@@ -30,6 +31,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "section_parameters": "Derived Parameters",
         "best_period_label": "Best Period: {period:.4f} d",
         "mcmc_best_fit": "MCMC Best Fit",
+        "mcmc_credible_band": "1σ predictive band",
 
         # Table
         "col_parameter": "Parameter",
@@ -56,6 +58,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "period_days": "Period [days]",
         "power": "Power",
         "phase_days": "Phase [days]",
+        "residuals": "Residuals (O-C)",
+        "spaghetti_label": "Posterior draws ({n})",
+        "transit_depth_ppm": "Depth: {depth:.0f} ppm",
+        "snr_label": "SNR: {snr:.1f}",
+        "rp_rs_label": "Rp/Rs = {val:.4f}",
+        "a_rs_label": "a/Rs = {val:.2f}",
+        "inc_label": "i = {val:.2f} deg",
     },
     "fr": {
         "report_title": "Rapport d'Analyse de Transit",
@@ -71,6 +80,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "section_parameters": "Paramètres Dérivés",
         "best_period_label": "Meilleure période : {period:.4f} j",
         "mcmc_best_fit": "Meilleur ajustement MCMC",
+        "mcmc_credible_band": "Bande prédictive 1σ",
 
         "col_parameter": "Paramètre",
         "col_value": "Médiane ± 1σ",
@@ -93,6 +103,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "period_days": "Période [jours]",
         "power": "Puissance",
         "phase_days": "Phase [jours]",
+        "residuals": "Résidus (O-C)",
+        "spaghetti_label": "Tirages postérieurs ({n})",
+        "transit_depth_ppm": "Profondeur : {depth:.0f} ppm",
+        "snr_label": "S/B : {snr:.1f}",
+        "rp_rs_label": "Rp/Rs = {val:.4f}",
+        "a_rs_label": "a/Rs = {val:.2f}",
+        "inc_label": "i = {val:.2f} deg",
     },
     "es": {
         "report_title": "Informe de Análisis de Tránsito",
@@ -130,6 +147,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "period_days": "Período [días]",
         "power": "Potencia",
         "phase_days": "Fase [días]",
+        "residuals": "Residuos (O-C)",
+        "spaghetti_label": "Muestras posteriores ({n})",
+        "transit_depth_ppm": "Profundidad: {depth:.0f} ppm",
+        "snr_label": "SNR: {snr:.1f}",
+        "rp_rs_label": "Rp/Rs = {val:.4f}",
+        "a_rs_label": "a/Rs = {val:.2f}",
+        "inc_label": "i = {val:.2f} deg",
     },
     "de": {
         "report_title": "Transit-Analysebericht",
@@ -167,6 +191,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "period_days": "Periode [Tage]",
         "power": "Leistung",
         "phase_days": "Phase [Tage]",
+        "residuals": "Residuen (O-C)",
+        "spaghetti_label": "Posterior-Ziehungen ({n})",
+        "transit_depth_ppm": "Tiefe: {depth:.0f} ppm",
+        "snr_label": "SNR: {snr:.1f}",
+        "rp_rs_label": "Rp/Rs = {val:.4f}",
+        "a_rs_label": "a/Rs = {val:.2f}",
+        "inc_label": "i = {val:.2f} deg",
     },
     "ja": {
         "report_title": "トランジット解析レポート",
@@ -204,6 +235,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "period_days": "周期 [日]",
         "power": "パワー",
         "phase_days": "位相 [日]",
+        "residuals": "残差 (O-C)",
+        "spaghetti_label": "事後抽出 ({n})",
+        "transit_depth_ppm": "深さ: {depth:.0f} ppm",
+        "snr_label": "SNR: {snr:.1f}",
+        "rp_rs_label": "Rp/Rs = {val:.4f}",
+        "a_rs_label": "a/Rs = {val:.2f}",
+        "inc_label": "i = {val:.2f} deg",
     },
     "zh": {
         "report_title": "凌星分析报告",
@@ -241,6 +279,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "period_days": "周期 [天]",
         "power": "功率",
         "phase_days": "相位 [天]",
+        "residuals": "残差 (O-C)",
+        "spaghetti_label": "后验抽样 ({n})",
+        "transit_depth_ppm": "深度: {depth:.0f} ppm",
+        "snr_label": "SNR: {snr:.1f}",
+        "rp_rs_label": "Rp/Rs = {val:.4f}",
+        "a_rs_label": "a/Rs = {val:.2f}",
+        "inc_label": "i = {val:.2f} deg",
     },
     "ru": {
         "report_title": "Отчёт об анализе транзита",
@@ -278,6 +323,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "period_days": "Период [дни]",
         "power": "Мощность",
         "phase_days": "Фаза [дни]",
+        "residuals": "Остатки (O-C)",
+        "spaghetti_label": "Апостериорные выборки ({n})",
+        "transit_depth_ppm": "Глубина: {depth:.0f} ppm",
+        "snr_label": "SNR: {snr:.1f}",
+        "rp_rs_label": "Rp/Rs = {val:.4f}",
+        "a_rs_label": "a/Rs = {val:.2f}",
+        "inc_label": "i = {val:.2f} deg",
     },
     "pt": {
         "report_title": "Relatório de Análise de Trânsito",
@@ -315,6 +367,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "period_days": "Período [dias]",
         "power": "Potência",
         "phase_days": "Fase [dias]",
+        "residuals": "Residuais (O-C)",
+        "spaghetti_label": "Amostras posteriores ({n})",
+        "transit_depth_ppm": "Profundidade: {depth:.0f} ppm",
+        "snr_label": "SNR: {snr:.1f}",
+        "rp_rs_label": "Rp/Rs = {val:.4f}",
+        "a_rs_label": "a/Rs = {val:.2f}",
+        "inc_label": "i = {val:.2f} deg",
     },
     "ko": {
         "report_title": "통과 분석 보고서",
@@ -352,6 +411,13 @@ _STRINGS: dict[str, dict[str, str]] = {
         "period_days": "주기 [일]",
         "power": "파워",
         "phase_days": "위상 [일]",
+        "residuals": "잔차 (O-C)",
+        "spaghetti_label": "사후 추출 ({n})",
+        "transit_depth_ppm": "깊이: {depth:.0f} ppm",
+        "snr_label": "SNR: {snr:.1f}",
+        "rp_rs_label": "Rp/Rs = {val:.4f}",
+        "a_rs_label": "a/Rs = {val:.2f}",
+        "inc_label": "i = {val:.2f} deg",
     },
 }
 

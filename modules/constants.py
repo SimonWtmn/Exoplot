@@ -186,18 +186,23 @@ MODEL_CATALOG.update({
 # ===========================================================
 # MCMC & Batman Transit Constants
 # ===========================================================
+# Default axis labels for the four "core" parameters.  ``TransitFitter``
+# falls back to these when the caller does not supply ``custom_labels``;
+# any extra fitted parameters (per, u1, u2, ecc, w, …) automatically
+# receive their parameter name as a label, so this list does not need
+# to be exhaustive.
 MCMC_LABELS = [r"$R_p / R_s$", r"Inclination (deg)", r"$a/R_s$", r"$t_0$"]
 
-# Physical constraints/bounds for the MCMC walkers
-MCMC_BOUNDS = [
-    (0.001, 0.2),      # Minimum and maximum planetary radius ratio
-    (89.6, 95),        # Inclination angle in degrees
-    (4, 4.2),          # Semi-major axis to stellar radius ratio
-    (-0.04, 0.04),     # Mid-transit time offset limits
-]
-
-# Initial guess vector for optimization before starting MCMC
-MCMC_X0 = [0.28, 87.0, 8.0, 0.0]
+# NOTE
+# ----
+# The previous ``MCMC_BOUNDS`` / ``MCMC_X0`` "generic defaults" have been
+# removed deliberately.  They were both inconsistent (x0[2]=8.0 sat
+# outside bounds[2]=(4, 4.2)) and dangerously narrow (a/Rs locked to
+# [4, 4.2] regardless of target).  ``TransitFitter`` now relies on its
+# data-driven ``_estimate_bounds`` machinery whenever the caller does
+# not supply ``custom_bounds`` / ``custom_x0`` and raises a clear error
+# if neither is available — much safer than silently fitting the wrong
+# planet.
 
 # Assumptions for the Batman transit model
 LIMB_DARKENING_COEFFS = [0.1, 0.3]

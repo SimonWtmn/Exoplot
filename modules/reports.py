@@ -738,27 +738,90 @@ class ReportGenerator:
     # =================================================================
 
     def _plot_raw_lightcurve(self, ax, analyzer):
-        """Raw cleaned lightcurve with transit markers."""
-        time = analyzer.clean_lc.time.value
-        flux = analyzer.clean_lc.flux.value
-        err = (analyzer.clean_lc.flux_err.value
+        """Raw cleaned lightcurve with transit markers.
+
+        When the analyzer was built by stitching several observations
+        (``analyzer.display_time`` populated), the x-axis is swapped
+        for the *gap-compressed* display time so the plot stays dense
+        and readable even when the underlying sectors are separated
+        by months of MAST down-time.  The physical time stamps in
+        ``clean_lc.time`` are untouched, so every other panel (fold,
+        BLS, MCMC) continues to see the true cadence.
+
+        A faint vertical divider marks each compressed inter-sector
+        gap and the panel title advertises which search-result rows
+        were selected — this fulfils the user-facing requirement to
+        state the selection directly next to the raw lightcurve.
+        """
+        time_orig = np.asarray(analyzer.clean_lc.time.value, dtype=np.float64)
+        flux = np.asarray(analyzer.clean_lc.flux.value, dtype=np.float64)
+        err = (np.asarray(analyzer.clean_lc.flux_err.value, dtype=np.float64)
                if analyzer.clean_lc.flux_err is not None
                else np.full_like(flux, np.median(flux) * 0.01))
 
-        ax.errorbar(time, flux, yerr=err, fmt=".", color=_PAL["data"],
+        # Compressed axis, if available.  Fall back to the native time.
+        disp = getattr(analyzer, "display_time", None)
+        seg_edges = getattr(analyzer, "segment_edges", None)
+        if disp is not None and len(disp) == len(time_orig):
+            time_plot = np.asarray(disp, dtype=np.float64)
+            mapper = analyzer.to_display_time
+            compressed = (seg_edges is not None and len(seg_edges) > 0)
+        else:
+            time_plot = time_orig
+            mapper = lambda t: np.asarray(t, dtype=np.float64)
+            seg_edges = []
+            compressed = False
+
+        ax.errorbar(time_plot, flux, yerr=err, fmt=".", color=_PAL["data"],
                     ecolor=_PAL["error"], markersize=0.85, alpha=0.55,
                     capsize=0, elinewidth=0.35, rasterized=False, zorder=2)
 
         period = analyzer.best_period
         t0_lc = analyzer.epoch_time
         if t0_lc is not None and period:
-            n_start = int(np.ceil((time.min() - t0_lc) / period))
-            n_end = int(np.floor((time.max() - t0_lc) / period))
-            for n in range(n_start, n_end + 1):
-                ax.axvline(t0_lc + n * period, color=_PAL["accent"],
-                           alpha=0.22, lw=0.4, zorder=0)
+            n_start = int(np.ceil((time_orig.min() - t0_lc) / period))
+            n_end = int(np.floor((time_orig.max() - t0_lc) / period))
+            mark_times = t0_lc + np.arange(n_start, n_end + 1) * period
+            mapped = mapper(mark_times)
+            for xpos in mapped:
+                if np.isfinite(xpos):
+                    ax.axvline(xpos, color=_PAL["accent"],
+                               alpha=0.22, lw=0.4, zorder=0)
 
-        ax.set_xlabel(_native_time_label(analyzer.clean_lc))
+        # Segment dividers — only drawn if we really compressed gaps.
+        if compressed:
+            for xe in seg_edges:
+                ax.axvline(xe, color=_PAL["divider"], ls=":", lw=0.55,
+                           alpha=0.65, zorder=1)
+
+        # ── Title advertising the selected rows ─────────────────────
+        sel = getattr(analyzer, "selected_indices", None) or []
+        sel_label = getattr(analyzer, "selection_label", "") or ""
+        if len(sel) > 1 and sel_label:
+            if self.use_latex:
+                title = (r"Raw Lightcurve "
+                         r"\textendash\ " + _latex_escape(sel_label)
+                         + r"  \small(" + str(len(sel))
+                         + " obs. stitched)")
+            else:
+                title = (f"Raw Lightcurve — {sel_label}  "
+                         f"({len(sel)} obs. stitched)")
+        elif len(sel) == 1 and sel_label:
+            if self.use_latex:
+                title = (r"\textbf{Raw Lightcurve} \; "
+                         r"\textendash\ " + _latex_escape(sel_label))
+            else:
+                title = f"Raw Lightcurve — {sel_label}"
+        else:
+            title = r"\textbf{Raw Lightcurve}" if self.use_latex \
+                else "Raw Lightcurve"
+        ax.set_title(title, loc="left", fontsize=8.5, pad=3,
+                     color=_PAL["data"])
+
+        base_label = _native_time_label(analyzer.clean_lc)
+        if compressed:
+            base_label = base_label + " (gaps compressed)"
+        ax.set_xlabel(base_label)
         ax.set_ylabel("Relative Flux")
         self._polish(ax)
 
@@ -852,7 +915,7 @@ class ReportGenerator:
         )
         
         fit_leg = mlines.Line2D(
-            [0,1], [0,0], # FIX 1: Use empty lists for proxy artists instead of [0, 1], [0, 0]
+            [0,0.5], [0,0.5],
             color=_PAL["model"],
             solid_capstyle="round",
             lw=2.0,
@@ -861,7 +924,7 @@ class ReportGenerator:
         
         leg = ax_tr.legend(
             handles=[band_leg, fit_leg],
-            loc="lower right",
+            loc="best",
             fontsize=6.2,
             facecolor="white",
             framealpha=1.0,
@@ -2031,7 +2094,7 @@ class ReportGenerator:
             b_err = abs(a_med * np.radians(1.0) * np.sin(np.radians(i_med)))
             b_up = inc[1] * b_err / 1.0
             b_lo = inc[2] * b_err / 1.0
-            rows.append(("Impact parameter b",
+            rows.append(("Impact parameter",
                          _fmt_val_err(b, b_up, b_lo,
                                       latex=self.use_latex, sig=3),
                          ""))

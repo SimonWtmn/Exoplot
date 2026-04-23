@@ -3,3 +3,5 @@ exoplotvenv/
 __pycache__/
 
 results/
+
+_smoke_test_report.py

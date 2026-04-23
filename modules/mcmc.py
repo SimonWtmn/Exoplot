@@ -1203,11 +1203,18 @@ class TransitFitter:
         return smooth_time, median_curve, lower_curve, upper_curve
 
     def get_best_model_curve(self, num_points=5000, phase_folded=False,
-                             mode='map'):
+                             folded=None, mode='map'):
         """Return the time grid and best-fit transit-model flux.
 
         Parameters
         ----------
+        phase_folded : bool
+            If True, the grid is in **orbital phase** (days from mid-transit),
+            matching ``LightCurve.fold``'s time axis.  If False, the grid is
+            absolute time (BTJD, BKJD, …), matching an *unfolded* fit.
+        folded : bool, optional
+            Alias for ``phase_folded`` (whichever is passed last wins if both
+            are set — prefer passing only one).
         mode : {'map', 'median', 'optimizer'}
             * ``'map'`` (default) — single sample with the highest
               log-probability in the post-burn-in chain.  Best choice
@@ -1233,6 +1240,8 @@ class TransitFitter:
         else:
             raise ValueError(f"Unknown mode={mode!r}")
 
+        if folded is not None:
+            phase_folded = bool(folded)
         smooth_time, t0_override = self._smooth_grid(num_points, phase_folded)
         curve = self._model_at(params, smooth_time, t0_override)
         if curve is None:

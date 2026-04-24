@@ -10,7 +10,7 @@
 
 <div align="center">
 
-<img src="static/images/logo.png" width="128" alt="Exoplot logo" />
+<img src="static/images/logo.png" width="400" alt="Exoplot logo" />
 
 # &nbsp;Exoplot
 
@@ -36,7 +36,7 @@
   <a href="#-repository-map"><b>Repo map</b></a>
 </p>
 
-<sub>Made by <b>A. Wittmann</b> — ENS de Lyon · Laboratoire de Physique</sub>
+<sub>Made by <b>A. Wittmann</b> — CEA IRFU/DAp · Université Paris-Saclay</sub>
 
 </div>
 
@@ -58,7 +58,7 @@
 
 ## &nbsp;`❖`&nbsp; What is this?
 
-**Exoplot** is a small, self-contained scientific pipeline built at the **ENS de Lyon**.
+**Exoplot** is a small, self-contained scientific pipeline built at the **Université Paris-Saclay / CEA IRFU DAp**.
 It turns a single user gesture — _"show me WASP-18"_ — into the full chain an exoplanet paper would take weeks to produce by hand:
 
 ```
@@ -338,8 +338,8 @@ The pipeline is not a black box. Every stage has a reference you can read.
 ### Install
 
 ```bash
-git clone https://github.com/SimonWtmn/Exoplot_ENS.git
-cd Exoplot_ENS
+git clone https://github.com/SimonWtmn/Exoplot.git
+cd Exoplot
 
 python -m venv exoplotvenv
 source exoplotvenv/bin/activate            # Windows: exoplotvenv\Scripts\activate
@@ -384,7 +384,7 @@ build_dvr_pdf(analyzer=lc, fitter=fit, out="results/WASP_18_DVR.pdf")
 ## &nbsp;`🗺`&nbsp; Repository map
 
 ```
-Exoplot_ENS/
+Exoplot/
 │
 ├── app.py                         ← FastAPI entry point (mounts static, routers, templates)
 ├── requirements.txt               ← pinned environment (Python 3.11+)
@@ -469,16 +469,18 @@ Every figure is a plain Matplotlib call. Every fit is driven by priors you can r
 
 ## &nbsp;`☾`&nbsp; Credits
 
-Built by **Simon Wittmann** at the **École Normale Supérieure de Lyon · Laboratoire de Physique**, in dialogue with the wonderful open-source scientific Python community.
+Built by **Simon Wittmann**, initially as part of an internship in the **CEA IRFU/DAp** of Paris-Saclay.
 
 Huge thanks to the maintainers of
-[**Lightkurve**](https://docs.lightkurve.org),
+[**Lightkurve**](https://lightkurve.github.io/lightkurve/),
 [**emcee**](https://emcee.readthedocs.io),
 [**batman**](https://lkreidberg.github.io/batman/docs/html/index.html),
 [**Astropy**](https://www.astropy.org),
 [**FastAPI**](https://fastapi.tiangolo.com), and to the
 [**NASA Exoplanet Archive**](https://exoplanetarchive.ipac.caltech.edu/) team
 for making open planetary science possible.
+
+Huge thanks to **Elsa Ducrot**, who helped me so much through my internship, and who kept showing interest into 
 
 <sub>_Exoplot is a teaching / research project — not a substitute for mission pipelines. Verify any scientific claim against the original data and peer-reviewed tools._</sub>
 
@@ -490,10 +492,10 @@ for making open planetary science possible.
 
 **Exoplot** &nbsp;·&nbsp; _A quiet workspace for loud discoveries._
 
-<a href="https://github.com/SimonWtmn/Exoplot_ENS">GitHub</a> &nbsp;·&nbsp;
+<a href="https://github.com/SimonWtmn/Exoplot">GitHub</a> &nbsp;·&nbsp;
 <a href="https://exoplanetarchive.ipac.caltech.edu/">NASA Exoplanet Archive</a> &nbsp;·&nbsp;
-<a href="https://docs.lightkurve.org/">Lightkurve</a>
+<a href="https://lightkurve.github.io/lightkurve/">Lightkurve</a>
 
-<sub>© 2026 — Made with care in Lyon.</sub>
+<sub>© 2026 — Made with care in Paris.</sub>
 
 </div>

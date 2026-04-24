@@ -10,7 +10,7 @@
 
 <div align="center">
 
-<img src="static/images/logo.png" width="400" alt="Exoplot logo" />
+<img src="static/images/logo.png" width="200" alt="Exoplot logo" />
 
 # &nbsp;Exoplot
 
@@ -56,7 +56,7 @@
 
 ---
 
-## &nbsp;`❖`&nbsp; What is this?
+## What is this?
 
 **Exoplot** is a small, self-contained scientific pipeline built at the **Université Paris-Saclay / CEA IRFU DAp**.
 It turns a single user gesture — _"show me WASP-18"_ — into the full chain an exoplanet paper would take weeks to produce by hand:
@@ -75,7 +75,7 @@ There is **no database**, **no login**, **no cloud dependency** — every analys
 
 ---
 
-## &nbsp;`★`&nbsp; A Field Guide to Exoplanets
+## A Field Guide to Exoplanets
 
 Before diving into the code, a short guided tour of the physics the pipeline is built around.
 
@@ -143,7 +143,7 @@ Exoplot automates all five stages end-to-end, in a single browser session.
 
 ---
 
-## &nbsp;`◈`&nbsp; Features at a glance
+## Features at a glance
 
 <div align="center">
 
@@ -163,7 +163,7 @@ Exoplot automates all five stages end-to-end, in a single browser session.
 
 ---
 
-## &nbsp;`⚙`&nbsp; Architecture
+## Architecture
 
 Exoplot is intentionally **flat, readable, and local-first**. Three layers; nothing else.
 
@@ -225,7 +225,7 @@ All plots are produced server-side with a Matplotlib `Agg` style that matches th
 
 ---
 
-## &nbsp;`🧠`&nbsp; The physics under the hood
+## The physics under the hood
 
 ### 1 · `LightCurveAnalyzer` — `modules/lightcurve.py`
 
@@ -306,7 +306,7 @@ See the built-in examples — `results/WASP_18_DVR.pdf`, `results/WASP_76_DVR.pd
 
 ---
 
-## &nbsp;`📚`&nbsp; Scientific foundations
+## Scientific foundations
 
 The pipeline is not a black box. Every stage has a reference you can read.
 
@@ -328,7 +328,7 @@ The pipeline is not a black box. Every stage has a reference you can read.
 
 ---
 
-## &nbsp;`🚀`&nbsp; Quickstart
+## Quickstart
 
 ### Prerequisites
 
@@ -381,7 +381,7 @@ build_dvr_pdf(analyzer=lc, fitter=fit, out="results/WASP_18_DVR.pdf")
 
 ---
 
-## &nbsp;`🗺`&nbsp; Repository map
+## Repository map
 
 ```
 Exoplot/
@@ -426,7 +426,7 @@ Exoplot/
 
 ---
 
-## &nbsp;`✶`&nbsp; Design principles
+## Design principles
 
 <table>
 <tr>
@@ -456,7 +456,7 @@ Every figure is a plain Matplotlib call. Every fit is driven by priors you can r
 
 ---
 
-## &nbsp;`☉`&nbsp; Roadmap
+## Roadmap
 
 - [ ] Multi-planet joint fits (currently single-planet per target)
 - [ ] Radial-velocity upload to break the mass/inclination degeneracy
@@ -467,7 +467,7 @@ Every figure is a plain Matplotlib call. Every fit is driven by priors you can r
 
 ---
 
-## &nbsp;`☾`&nbsp; Credits
+## Credits
 
 Built by **Simon Wittmann**, initially as part of an internship in the **CEA IRFU/DAp** of Paris-Saclay.
 
@@ -480,7 +480,7 @@ Huge thanks to the maintainers of
 [**NASA Exoplanet Archive**](https://exoplanetarchive.ipac.caltech.edu/) team
 for making open planetary science possible.
 
-Huge thanks to **Elsa Ducrot**, who helped me so much through my internship, and who kept showing interest into 
+Huge thanks to **Elsa Ducrot**, who helped me so much through my internship, and who kept showing interest in the project as it evolved, providing invaluable feedback and guidance that helped make Exoplot what it is today.
 
 <sub>_Exoplot is a teaching / research project — not a substitute for mission pipelines. Verify any scientific claim against the original data and peer-reviewed tools._</sub>
 

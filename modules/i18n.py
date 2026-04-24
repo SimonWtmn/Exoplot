@@ -1,20 +1,35 @@
 """
 Backend Internationalisation (i18n)
 -----------------------------------
-Provides translated strings for PDF reports and any server-side text.
-Language codes mirror the frontend i18n.js: en, fr, es, de, ja, zh, ru, pt, ko.
+Provides translated strings for PDF reports, Matplotlib plot labels and
+any other server-side text.  Exoplot is intentionally **strictly
+bilingual** (English + French) — the frontend language toggle only
+exposes those two locales, and this module mirrors that contract.
 
-Usage:
+Keys are split into two logical groups:
+
+* ``report_*`` / ``section_*`` / ``col_*`` / ``obs_*`` / ``derived_*``
+  / axis labels (``time_bjd``, ``normalized_flux``, …)
+      — consumed by the long-form PDF report in ``modules/reports.py``.
+* ``ui_*``
+      — consumed by the **analysis SPA** plot helpers in
+      ``routers/analysis.py`` (short titles, vibrant academic labels).
+
+Usage::
+
     from modules.i18n import t, set_locale
     set_locale("fr")
-    t("report_title")           # → "Rapport d'Analyse de Transit"
-    t("report_title", "en")     # → "Transit Analysis Report"
+    t("report_title")              # → "Rapport d'Analyse de Transit"
+    t("ui_title_raw_lc", "en")     # → "Stitched raw lightcurve"
 
 Author: S. Wittmann
 Repository: https://github.com/SimonWtmn/Exoplot
 """
 
 _STRINGS: dict[str, dict[str, str]] = {
+    # ══════════════════════════════════════════════════════════════
+    #  English (reference pack — every new key must first land here)
+    # ══════════════════════════════════════════════════════════════
     "en": {
         # Report structure
         "report_title": "Transit Analysis Report",
@@ -26,7 +41,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "generated_on": "Generated on {date}",
         "target_label": "Target: {target}",
 
-        # Summary page sections
+        # Report-page section headings
         "section_lightcurve": "Cleaned Lightcurve",
         "section_raw_lightcurve": "Raw Light Curve (SAP / PDCSAP)",
         "section_periodogram": "Box Least Squares Periodogram",
@@ -58,15 +73,14 @@ _STRINGS: dict[str, dict[str, str]] = {
         "even_label": "Even transits",
         "best_period_label": "Best Period: {period:.4f} d",
         "mcmc_best_fit": "MCMC Best Fit",
-        "mcmc_credible_band": "1σ predictive band",
+        "mcmc_credible_band": "1\u03c3 predictive band",
         "mcmc_posterior_draws": "Posterior draws ({n})",
 
-        # Table
+        # Parameter table
         "col_parameter": "Parameter",
-        "col_value": "Median ± 1σ",
+        "col_value": "Median \u00b1 1\u03c3",
         "col_unit": "Unit",
 
-        # Result-table section headers
         "fitted_header": "Fitted Parameters (posterior)",
         "derived_header": "Derived Quantities",
         "derived_depth": "Transit depth",
@@ -76,7 +90,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "derived_inc_deg": "Inclination i",
 
         # Fit quality
-        "chi2_reduced": "Reduced χ²",
+        "chi2_reduced": "Reduced \u03c7\u00b2",
         "bic_label": "BIC",
         "aic_label": "AIC",
         "rms_residuals": "RMS residuals",
@@ -93,12 +107,12 @@ _STRINGS: dict[str, dict[str, str]] = {
         "n_walkers": "Walkers",
         "n_steps": "Steps",
         "burn_in": "Burn-in",
-        "autocorr": "Autocorrelation τ",
+        "autocorr": "Autocorrelation \u03c4",
         "acceptance": "Mean acceptance",
         "n_eff": "Effective samples",
         "not_estimated": "N/A",
 
-        # Axes
+        # Axes (shared between SPA plots + PDF report)
         "time_bjd": "Time [BJD]",
         "normalized_flux": "Normalised Flux",
         "period_days": "Period [days]",
@@ -111,37 +125,64 @@ _STRINGS: dict[str, dict[str, str]] = {
         "rp_rs_label": "Rp/Rs = {val:.4f}",
         "a_rs_label": "a/Rs = {val:.2f}",
         "inc_label": "i = {val:.2f} deg",
+
+        # ── SPA (analysis.html) plot titles, axes, legends ──────────
+        # Kept separate from the report keys above so we can tweak the
+        # SPA wording without touching the PDF report copy.
+        "ui_title_raw_lc":             "Stitched raw lightcurve $-$ {target}",
+        "ui_title_periodogram":        "Box Least Squares periodogram",
+        "ui_title_folded_initial":     "Initial folded lightcurve $(P = {period:.4f}\\,\\mathrm{{d}})$",
+        "ui_title_folded_with_model":  "Folded lightcurve with best-fit transit model",
+        "ui_title_oddeven":            "Odd / even transit comparison",
+        "ui_axis_time_obs":            "Observation time (days, gaps compressed)",
+        "ui_axis_time_btjd":           "Time (BTJD $-$ 2{,}457{,}000)",
+        "ui_axis_time_bkjd":           "Time (BKJD $-$ 2{,}454{,}833)",
+        "ui_axis_time_generic":        "Time (days)",
+        "ui_axis_flux":                "Normalised flux $F/\\langle F\\rangle$",
+        "ui_axis_phase":               "Phase $\\phi$ (days from mid-transit)",
+        "ui_axis_phase_short":         "Phase (days)",
+        "ui_axis_period":              "Orbital period (days)",
+        "ui_axis_power":               "BLS power",
+        "ui_legend_folded_data":       "Folded data",
+        "ui_legend_best_fit_map":      "Best-fit model (MAP)",
+        "ui_legend_peak_period":       "$P = {period:.4f}\\,\\mathrm{{d}}$",
+        "ui_odd_transits":             "Odd transits",
+        "ui_even_transits":            "Even transits",
     },
+
+    # ══════════════════════════════════════════════════════════════
+    #  French
+    # ══════════════════════════════════════════════════════════════
     "fr": {
         "report_title": "Rapport d'Analyse de Transit",
         "report_header": "Rapport Exoplot",
-        "made_by": "Réalisé par {url}  \u2022  {date}",
-        "page_summary": "Résumé de l'Ajustement",
+        "made_by": "R\u00e9alis\u00e9 par {url}  \u2022  {date}",
+        "page_summary": "R\u00e9sum\u00e9 de l'Ajustement",
         "page_diagnostics": "Diagnostics MCMC",
-        "generated_by": "Généré par {name}",
-        "generated_on": "Généré le {date}",
+        "generated_by": "G\u00e9n\u00e9r\u00e9 par {name}",
+        "generated_on": "G\u00e9n\u00e9r\u00e9 le {date}",
         "target_label": "Cible : {target}",
 
-        "section_lightcurve": "Courbe de Lumière Nettoyée",
-        "section_raw_lightcurve": "Courbe de Lumière Brute (SAP / PDCSAP)",
-        "section_periodogram": "Périodogramme BLS",
-        "section_transit_fit": "Transit Replié en Phase (P = {period:.4f} j)",
-        "section_parameters": "Paramètres Dérivés",
-        "section_pixel_file": "Fichier Pixel (séquence)",
-        "section_spaghetti": "Tirages Postérieurs",
-        "section_mcmc_results": "Résultats MCMC",
-        "section_fit_quality": "Qualité de l'ajustement",
+        "section_lightcurve": "Courbe de Lumi\u00e8re Nettoy\u00e9e",
+        "section_raw_lightcurve": "Courbe de Lumi\u00e8re Brute (SAP / PDCSAP)",
+        "section_periodogram": "P\u00e9riodogramme BLS",
+        "section_transit_fit": "Transit Repli\u00e9 en Phase (P = {period:.4f} j)",
+        "section_parameters": "Param\u00e8tres D\u00e9riv\u00e9s",
+        "section_pixel_file": "Fichier Pixel (s\u00e9quence)",
+        "section_spaghetti": "Tirages Post\u00e9rieurs",
+        "section_mcmc_results": "R\u00e9sultats MCMC",
+        "section_fit_quality": "Qualit\u00e9 de l'ajustement",
         "tpf_unavailable": "Fichier pixel indisponible",
-        "tpf_median_label": "Médian",
+        "tpf_median_label": "M\u00e9dian",
         "tpf_frame_label": "t = {t:.3f} j",
         "tpf_aperture_label": "Ouverture pipeline",
-        "tpf_movie_title": "Fichier Pixel — Film image par image",
+        "tpf_movie_title": "Fichier Pixel \u2014 Film image par image",
         "tpf_movie_frame": "Image {i}/{n}  \u2022  t = {t:.4f} j  ({rel:+.4f} j du transit)",
         "tpf_movie_subtitle": "Feuilletez les pages pour visualiser la variation de flux pendant le transit. Ouverture pipeline en rouge.",
         "section_oddeven": "Transits Pairs / Impairs",
-        "section_observations": "Résumé des Observations",
+        "section_observations": "R\u00e9sum\u00e9 des Observations",
         "obs_ndata": "Cadences",
-        "obs_ntransits": "Transits observés",
+        "obs_ntransits": "Transits observ\u00e9s",
         "obs_sector": "Secteur/Trimestre",
         "obs_mission": "Mission",
         "obs_baseline": "Ligne de base",
@@ -151,365 +192,82 @@ _STRINGS: dict[str, dict[str, str]] = {
         "obs_snr": "SNR du transit",
         "odd_label": "Transits impairs",
         "even_label": "Transits pairs",
-        "best_period_label": "Meilleure période : {period:.4f} j",
+        "best_period_label": "Meilleure p\u00e9riode : {period:.4f} j",
         "mcmc_best_fit": "Meilleur ajustement MCMC",
-        "mcmc_credible_band": "Bande prédictive 1σ",
-        "mcmc_posterior_draws": "Tirages postérieurs ({n})",
+        "mcmc_credible_band": "Bande pr\u00e9dictive 1\u03c3",
+        "mcmc_posterior_draws": "Tirages post\u00e9rieurs ({n})",
 
-        "col_parameter": "Paramètre",
-        "col_value": "Médiane ± 1σ",
-        "col_unit": "Unité",
+        "col_parameter": "Param\u00e8tre",
+        "col_value": "M\u00e9diane \u00b1 1\u03c3",
+        "col_unit": "Unit\u00e9",
 
-        "fitted_header": "Paramètres Ajustés (postérieur)",
-        "derived_header": "Grandeurs Dérivées",
+        "fitted_header": "Param\u00e8tres Ajust\u00e9s (post\u00e9rieur)",
+        "derived_header": "Grandeurs D\u00e9riv\u00e9es",
         "derived_depth": "Profondeur du transit",
-        "derived_impact": "Paramètre d'impact b",
-        "derived_t14": "Durée T14",
-        "derived_rp_rjup": "Rayon planétaire Rp",
+        "derived_impact": "Param\u00e8tre d'impact b",
+        "derived_t14": "Dur\u00e9e T14",
+        "derived_rp_rjup": "Rayon plan\u00e9taire Rp",
         "derived_inc_deg": "Inclinaison i",
 
-        "chi2_reduced": "χ² réduit",
+        "chi2_reduced": "\u03c7\u00b2 r\u00e9duit",
         "bic_label": "BIC",
         "aic_label": "AIC",
-        "rms_residuals": "RMS résidus",
-        "n_data_points": "Points de données",
-        "n_free_params": "Paramètres libres",
+        "rms_residuals": "RMS r\u00e9sidus",
+        "n_data_points": "Points de donn\u00e9es",
+        "n_free_params": "Param\u00e8tres libres",
 
         "section_traces": "Traces des Marcheurs",
-        "section_corner": "Distributions Postérieures",
+        "section_corner": "Distributions Post\u00e9rieures",
         "step_number": "Pas (aminci)",
 
-        "convergence_title": "Résumé de Convergence",
+        "convergence_title": "R\u00e9sum\u00e9 de Convergence",
         "n_walkers": "Marcheurs",
         "n_steps": "Pas",
         "burn_in": "Burn-in",
-        "autocorr": "Autocorrélation τ",
+        "autocorr": "Autocorr\u00e9lation \u03c4",
         "acceptance": "Acceptance moy.",
-        "n_eff": "Échantillons effectifs",
+        "n_eff": "\u00c9chantillons effectifs",
         "not_estimated": "N/D",
 
         "time_bjd": "Temps [BJD]",
-        "normalized_flux": "Flux Normalisé",
-        "period_days": "Période [jours]",
+        "normalized_flux": "Flux Normalis\u00e9",
+        "period_days": "P\u00e9riode [jours]",
         "power": "Puissance",
         "phase_days": "Phase [jours]",
-        "residuals": "Résidus (O-C)",
-        "spaghetti_label": "Tirages postérieurs ({n})",
+        "residuals": "R\u00e9sidus (O-C)",
+        "spaghetti_label": "Tirages post\u00e9rieurs ({n})",
         "transit_depth_ppm": "Profondeur : {depth:.0f} ppm",
         "snr_label": "S/B : {snr:.1f}",
         "rp_rs_label": "Rp/Rs = {val:.4f}",
         "a_rs_label": "a/Rs = {val:.2f}",
         "inc_label": "i = {val:.2f} deg",
-    },
-    "es": {
-        "report_title": "Informe de Análisis de Tránsito",
-        "page_summary": "Resumen del Ajuste",
-        "page_diagnostics": "Diagnósticos MCMC",
-        "generated_by": "Generado por {name}",
-        "generated_on": "Generado el {date}",
-        "target_label": "Objetivo: {target}",
 
-        "section_lightcurve": "Curva de Luz Limpia",
-        "section_periodogram": "Periodograma BLS",
-        "section_transit_fit": "Tránsito Plegado (P = {period:.4f} d)",
-        "section_parameters": "Parámetros Derivados",
-        "best_period_label": "Mejor período: {period:.4f} d",
-        "mcmc_best_fit": "Mejor ajuste MCMC",
-
-        "col_parameter": "Parámetro",
-        "col_value": "Mediana ± 1σ",
-
-        "section_traces": "Trazas de los Caminantes",
-        "section_corner": "Distribuciones Posteriores",
-        "step_number": "Paso (adelgazado)",
-
-        "convergence_title": "Resumen de Convergencia",
-        "n_walkers": "Caminantes",
-        "n_steps": "Pasos",
-        "burn_in": "Burn-in",
-        "autocorr": "Autocorrelación τ",
-        "acceptance": "Aceptación media",
-        "n_eff": "Muestras efectivas",
-        "not_estimated": "N/D",
-
-        "time_bjd": "Tiempo [BJD]",
-        "normalized_flux": "Flujo Normalizado",
-        "period_days": "Período [días]",
-        "power": "Potencia",
-        "phase_days": "Fase [días]",
-        "residuals": "Residuos (O-C)",
-        "spaghetti_label": "Muestras posteriores ({n})",
-        "transit_depth_ppm": "Profundidad: {depth:.0f} ppm",
-        "snr_label": "SNR: {snr:.1f}",
-        "rp_rs_label": "Rp/Rs = {val:.4f}",
-        "a_rs_label": "a/Rs = {val:.2f}",
-        "inc_label": "i = {val:.2f} deg",
-    },
-    "de": {
-        "report_title": "Transit-Analysebericht",
-        "page_summary": "Zusammenfassung der Anpassung",
-        "page_diagnostics": "MCMC-Diagnostik",
-        "generated_by": "Erstellt von {name}",
-        "generated_on": "Erstellt am {date}",
-        "target_label": "Ziel: {target}",
-
-        "section_lightcurve": "Bereinigte Lichtkurve",
-        "section_periodogram": "BLS-Periodogramm",
-        "section_transit_fit": "Phasengefalteter Transit (P = {period:.4f} d)",
-        "section_parameters": "Abgeleitete Parameter",
-        "best_period_label": "Beste Periode: {period:.4f} d",
-        "mcmc_best_fit": "MCMC-Bestanpassung",
-
-        "col_parameter": "Parameter",
-        "col_value": "Median ± 1σ",
-
-        "section_traces": "Walker-Spuren",
-        "section_corner": "Posteriorverteilungen",
-        "step_number": "Schritt (ausgedünnt)",
-
-        "convergence_title": "Konvergenzübersicht",
-        "n_walkers": "Walker",
-        "n_steps": "Schritte",
-        "burn_in": "Burn-in",
-        "autocorr": "Autokorrelation τ",
-        "acceptance": "Mittlere Akzeptanz",
-        "n_eff": "Effektive Stichproben",
-        "not_estimated": "k. A.",
-
-        "time_bjd": "Zeit [BJD]",
-        "normalized_flux": "Normierter Fluss",
-        "period_days": "Periode [Tage]",
-        "power": "Leistung",
-        "phase_days": "Phase [Tage]",
-        "residuals": "Residuen (O-C)",
-        "spaghetti_label": "Posterior-Ziehungen ({n})",
-        "transit_depth_ppm": "Tiefe: {depth:.0f} ppm",
-        "snr_label": "SNR: {snr:.1f}",
-        "rp_rs_label": "Rp/Rs = {val:.4f}",
-        "a_rs_label": "a/Rs = {val:.2f}",
-        "inc_label": "i = {val:.2f} deg",
-    },
-    "ja": {
-        "report_title": "トランジット解析レポート",
-        "page_summary": "フィット概要",
-        "page_diagnostics": "MCMC 診断",
-        "generated_by": "{name} により生成",
-        "generated_on": "生成日: {date}",
-        "target_label": "対象: {target}",
-
-        "section_lightcurve": "クリーニング済み光度曲線",
-        "section_periodogram": "BLS ペリオドグラム",
-        "section_transit_fit": "位相折り返しトランジット (P = {period:.4f} d)",
-        "section_parameters": "導出パラメータ",
-        "best_period_label": "最良周期: {period:.4f} d",
-        "mcmc_best_fit": "MCMC 最良フィット",
-
-        "col_parameter": "パラメータ",
-        "col_value": "中央値 ± 1σ",
-
-        "section_traces": "ウォーカートレース",
-        "section_corner": "事後分布",
-        "step_number": "ステップ（間引き後）",
-
-        "convergence_title": "収束まとめ",
-        "n_walkers": "ウォーカー数",
-        "n_steps": "ステップ数",
-        "burn_in": "バーンイン",
-        "autocorr": "自己相関 τ",
-        "acceptance": "平均受容率",
-        "n_eff": "有効サンプル数",
-        "not_estimated": "N/A",
-
-        "time_bjd": "時刻 [BJD]",
-        "normalized_flux": "規格化フラックス",
-        "period_days": "周期 [日]",
-        "power": "パワー",
-        "phase_days": "位相 [日]",
-        "residuals": "残差 (O-C)",
-        "spaghetti_label": "事後抽出 ({n})",
-        "transit_depth_ppm": "深さ: {depth:.0f} ppm",
-        "snr_label": "SNR: {snr:.1f}",
-        "rp_rs_label": "Rp/Rs = {val:.4f}",
-        "a_rs_label": "a/Rs = {val:.2f}",
-        "inc_label": "i = {val:.2f} deg",
-    },
-    "zh": {
-        "report_title": "凌星分析报告",
-        "page_summary": "拟合摘要",
-        "page_diagnostics": "MCMC 诊断",
-        "generated_by": "由 {name} 生成",
-        "generated_on": "生成于 {date}",
-        "target_label": "目标: {target}",
-
-        "section_lightcurve": "清洗后的光变曲线",
-        "section_periodogram": "BLS 周期图",
-        "section_transit_fit": "相位折叠凌星 (P = {period:.4f} d)",
-        "section_parameters": "推导参数",
-        "best_period_label": "最佳周期: {period:.4f} d",
-        "mcmc_best_fit": "MCMC 最佳拟合",
-
-        "col_parameter": "参数",
-        "col_value": "中位数 ± 1σ",
-
-        "section_traces": "行者轨迹",
-        "section_corner": "后验分布",
-        "step_number": "步 (稀释后)",
-
-        "convergence_title": "收敛摘要",
-        "n_walkers": "行者数",
-        "n_steps": "步数",
-        "burn_in": "预热期",
-        "autocorr": "自相关 τ",
-        "acceptance": "平均接受率",
-        "n_eff": "有效样本数",
-        "not_estimated": "N/A",
-
-        "time_bjd": "时间 [BJD]",
-        "normalized_flux": "归一化通量",
-        "period_days": "周期 [天]",
-        "power": "功率",
-        "phase_days": "相位 [天]",
-        "residuals": "残差 (O-C)",
-        "spaghetti_label": "后验抽样 ({n})",
-        "transit_depth_ppm": "深度: {depth:.0f} ppm",
-        "snr_label": "SNR: {snr:.1f}",
-        "rp_rs_label": "Rp/Rs = {val:.4f}",
-        "a_rs_label": "a/Rs = {val:.2f}",
-        "inc_label": "i = {val:.2f} deg",
-    },
-    "ru": {
-        "report_title": "Отчёт об анализе транзита",
-        "page_summary": "Сводка подгонки",
-        "page_diagnostics": "Диагностика MCMC",
-        "generated_by": "Создано {name}",
-        "generated_on": "Создано {date}",
-        "target_label": "Цель: {target}",
-
-        "section_lightcurve": "Очищенная кривая блеска",
-        "section_periodogram": "Периодограмма BLS",
-        "section_transit_fit": "Сложенный транзит (P = {period:.4f} д)",
-        "section_parameters": "Полученные параметры",
-        "best_period_label": "Лучший период: {period:.4f} д",
-        "mcmc_best_fit": "Лучшая подгонка MCMC",
-
-        "col_parameter": "Параметр",
-        "col_value": "Медиана ± 1σ",
-
-        "section_traces": "Следы блуждальщиков",
-        "section_corner": "Апостериорные распределения",
-        "step_number": "Шаг (прореженный)",
-
-        "convergence_title": "Сводка сходимости",
-        "n_walkers": "Блуждальщиков",
-        "n_steps": "Шагов",
-        "burn_in": "Прогрев",
-        "autocorr": "Автокорреляция τ",
-        "acceptance": "Средняя доля принятия",
-        "n_eff": "Эффективных выборок",
-        "not_estimated": "Н/Д",
-
-        "time_bjd": "Время [BJD]",
-        "normalized_flux": "Нормированный поток",
-        "period_days": "Период [дни]",
-        "power": "Мощность",
-        "phase_days": "Фаза [дни]",
-        "residuals": "Остатки (O-C)",
-        "spaghetti_label": "Апостериорные выборки ({n})",
-        "transit_depth_ppm": "Глубина: {depth:.0f} ppm",
-        "snr_label": "SNR: {snr:.1f}",
-        "rp_rs_label": "Rp/Rs = {val:.4f}",
-        "a_rs_label": "a/Rs = {val:.2f}",
-        "inc_label": "i = {val:.2f} deg",
-    },
-    "pt": {
-        "report_title": "Relatório de Análise de Trânsito",
-        "page_summary": "Resumo do Ajuste",
-        "page_diagnostics": "Diagnósticos MCMC",
-        "generated_by": "Gerado por {name}",
-        "generated_on": "Gerado em {date}",
-        "target_label": "Alvo: {target}",
-
-        "section_lightcurve": "Curva de Luz Limpa",
-        "section_periodogram": "Periodograma BLS",
-        "section_transit_fit": "Trânsito Dobrado (P = {period:.4f} d)",
-        "section_parameters": "Parâmetros Derivados",
-        "best_period_label": "Melhor período: {period:.4f} d",
-        "mcmc_best_fit": "Melhor ajuste MCMC",
-
-        "col_parameter": "Parâmetro",
-        "col_value": "Mediana ± 1σ",
-
-        "section_traces": "Traços dos Caminhantes",
-        "section_corner": "Distribuições Posteriores",
-        "step_number": "Passo (rarefeito)",
-
-        "convergence_title": "Resumo de Convergência",
-        "n_walkers": "Caminhantes",
-        "n_steps": "Passos",
-        "burn_in": "Burn-in",
-        "autocorr": "Autocorrelação τ",
-        "acceptance": "Aceitação média",
-        "n_eff": "Amostras efetivas",
-        "not_estimated": "N/D",
-
-        "time_bjd": "Tempo [BJD]",
-        "normalized_flux": "Fluxo Normalizado",
-        "period_days": "Período [dias]",
-        "power": "Potência",
-        "phase_days": "Fase [dias]",
-        "residuals": "Residuais (O-C)",
-        "spaghetti_label": "Amostras posteriores ({n})",
-        "transit_depth_ppm": "Profundidade: {depth:.0f} ppm",
-        "snr_label": "SNR: {snr:.1f}",
-        "rp_rs_label": "Rp/Rs = {val:.4f}",
-        "a_rs_label": "a/Rs = {val:.2f}",
-        "inc_label": "i = {val:.2f} deg",
-    },
-    "ko": {
-        "report_title": "통과 분석 보고서",
-        "page_summary": "피팅 요약",
-        "page_diagnostics": "MCMC 진단",
-        "generated_by": "{name}에서 생성",
-        "generated_on": "생성일: {date}",
-        "target_label": "대상: {target}",
-
-        "section_lightcurve": "정리된 밝기 곡선",
-        "section_periodogram": "BLS 주기도",
-        "section_transit_fit": "위상 접힌 통과 (P = {period:.4f} d)",
-        "section_parameters": "도출 매개변수",
-        "best_period_label": "최적 주기: {period:.4f} d",
-        "mcmc_best_fit": "MCMC 최적 피팅",
-
-        "col_parameter": "매개변수",
-        "col_value": "중앙값 ± 1σ",
-
-        "section_traces": "워커 추적",
-        "section_corner": "사후 분포",
-        "step_number": "스텝 (간격 후)",
-
-        "convergence_title": "수렴 요약",
-        "n_walkers": "워커 수",
-        "n_steps": "스텝 수",
-        "burn_in": "번인",
-        "autocorr": "자기상관 τ",
-        "acceptance": "평균 수용률",
-        "n_eff": "유효 샘플 수",
-        "not_estimated": "N/A",
-
-        "time_bjd": "시간 [BJD]",
-        "normalized_flux": "정규화 플럭스",
-        "period_days": "주기 [일]",
-        "power": "파워",
-        "phase_days": "위상 [일]",
-        "residuals": "잔차 (O-C)",
-        "spaghetti_label": "사후 추출 ({n})",
-        "transit_depth_ppm": "깊이: {depth:.0f} ppm",
-        "snr_label": "SNR: {snr:.1f}",
-        "rp_rs_label": "Rp/Rs = {val:.4f}",
-        "a_rs_label": "a/Rs = {val:.2f}",
-        "inc_label": "i = {val:.2f} deg",
+        # ── SPA (analysis.html) ────────────────────────────────────
+        "ui_title_raw_lc":             "Courbe de lumi\u00e8re brute $-$ {target}",
+        "ui_title_periodogram":        "P\u00e9riodogramme BLS",
+        "ui_title_folded_initial":     "Courbe repli\u00e9e initiale $(P = {period:.4f}\\,\\mathrm{{j}})$",
+        "ui_title_folded_with_model":  "Courbe repli\u00e9e avec mod\u00e8le de transit ajust\u00e9",
+        "ui_title_oddeven":            "Comparaison des transits pairs / impairs",
+        "ui_axis_time_obs":            "Temps d'observation (jours, trous compress\u00e9s)",
+        "ui_axis_time_btjd":           "Temps (BTJD $-$ 2{,}457{,}000)",
+        "ui_axis_time_bkjd":           "Temps (BKJD $-$ 2{,}454{,}833)",
+        "ui_axis_time_generic":        "Temps (jours)",
+        "ui_axis_flux":                "Flux normalis\u00e9 $F/\\langle F\\rangle$",
+        "ui_axis_phase":               "Phase $\\phi$ (jours depuis le milieu du transit)",
+        "ui_axis_phase_short":         "Phase (jours)",
+        "ui_axis_period":              "P\u00e9riode orbitale (jours)",
+        "ui_axis_power":               "Puissance BLS",
+        "ui_legend_folded_data":       "Donn\u00e9es repli\u00e9es",
+        "ui_legend_best_fit_map":      "Mod\u00e8le ajust\u00e9 (MAP)",
+        "ui_legend_peak_period":       "$P = {period:.4f}\\,\\mathrm{{j}}$",
+        "ui_odd_transits":             "Transits impairs",
+        "ui_even_transits":            "Transits pairs",
     },
 }
+
+#: Single source of truth for the subset of locales the whole app
+#: recognises.  Keep in lock-step with ``static/js/i18n.js``.
+SUPPORTED_LOCALES: tuple[str, ...] = ("en", "fr")
 
 _REFERENCE_KEYS = frozenset(_STRINGS["en"].keys())
 
@@ -522,16 +280,31 @@ _UNICODE_TO_LATEX = {
     "\u2212": r"$-$",
 }
 
-_LATEX_INCOMPATIBLE_LOCALES = {"ja", "zh", "ko", "ru"}
+#: Exoplot now ships only ``en`` / ``fr`` and both render cleanly via
+#: pdfTeX — kept for API compatibility with the rest of the codebase.
+_LATEX_INCOMPATIBLE_LOCALES: frozenset[str] = frozenset()
 
 
-def set_locale(code: str):
-    """Set the default locale for subsequent t() calls.
-    
+def normalise_locale(code: str | None) -> str:
+    """Return a safe locale code, coercing anything unsupported to ``en``."""
+    if code is None:
+        return _current_locale
+    code = str(code).lower().strip()
+    if code in _STRINGS:
+        return code
+    # Accept browser-style tags such as "fr-CA", "en_US", …
+    short = code.split("-")[0].split("_")[0]
+    return short if short in _STRINGS else "en"
+
+
+def set_locale(code: str) -> None:
+    """Set the default locale for subsequent :func:`t` calls.
+
     Raises:
         ValueError: If *code* is not among the supported locales.
     """
     global _current_locale
+    code = normalise_locale(code)
     if code not in _STRINGS:
         raise ValueError(
             f"Unknown locale '{code}'. Supported: {', '.join(_STRINGS)}"
@@ -544,8 +317,12 @@ def get_locale() -> str:
 
 
 def is_latex_compatible(locale: str | None = None) -> bool:
-    """Return False for locales whose scripts can't be rendered by pdfTeX."""
-    return (locale or _current_locale) not in _LATEX_INCOMPATIBLE_LOCALES
+    """Return ``False`` for locales whose scripts can't render via pdfTeX.
+
+    With the EN+FR-only contract this is always ``True``, but we keep
+    the hook so ``ReportGenerator`` can stay locale-agnostic."""
+    loc = locale or _current_locale
+    return loc not in _LATEX_INCOMPATIBLE_LOCALES
 
 
 def _latex_safe(text: str) -> str:
@@ -563,12 +340,12 @@ def t(key: str, locale: str | None = None, latex: bool = False,
     Parameters
     ----------
     key     : translation key
-    locale  : override locale
-    latex   : if True, replace Unicode math symbols (±, σ, τ …) with
+    locale  : override locale (falls back to ``en`` if unknown)
+    latex   : replace Unicode math symbols (``±``, ``σ``, ``τ`` …) with
               their LaTeX equivalents so the string is safe for pdfTeX.
-    **kwargs: forwarded to ``str.format()``
+    **kwargs: forwarded to :meth:`str.format`
     """
-    loc = locale or _current_locale
+    loc = normalise_locale(locale) if locale else _current_locale
     pack = _STRINGS.get(loc, _STRINGS["en"])
     raw = pack.get(key) or _STRINGS["en"].get(key) or key
     try:

@@ -94,16 +94,11 @@
       return document.getElementById(id);
     }).filter(Boolean);
     if (!selects.length || !window.ExoplotI18n) return;
+    // Exoplot is strictly bilingual (EN / FR).  Keep this list in lock-
+    // step with ``static/js/i18n.js`` and ``modules/i18n.py``.
     var labels = {
-      en: "English",
-      fr: "Français",
-      es: "Español",
-      de: "Deutsch",
-      ja: "日本語",
-      zh: "中文",
-      ru: "Русский",
-      pt: "Português",
-      ko: "한국어",
+      en: "EN · English",
+      fr: "FR · Français",
     };
     var locales = ExoplotI18n.locales;
     var current = ExoplotI18n.getLocale();
@@ -139,6 +134,13 @@
       ExoplotI18n.apply(v);
     }
     refreshHeaderChrome();
+    // Broadcast so pages with server-rendered assets (e.g. the analysis
+    // SPA's Matplotlib plots) can re-fetch with the new locale.
+    try {
+      window.dispatchEvent(
+        new CustomEvent("exoplot-lang", { detail: { lang: v } })
+      );
+    } catch (err) {}
   }
 
   function initChrome() {

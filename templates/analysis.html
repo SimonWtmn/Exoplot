@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/css/analysis.css" />
+  {# KaTeX: render $R_p/R_\star$, $a/R_\star$, $T_\mathrm{eq}$… client-side. #}
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
+    crossorigin="anonymous" />
+  <script
+    defer
+    src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"
+    crossorigin="anonymous"></script>
+  <script
+    defer
+    src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    crossorigin="anonymous"></script>
+{% endblock %}
+
+{% block main %}
+<main class="page-analysis" id="main-content">
+
+  {# ═════════════════════ STEP INDICATOR ═════════════════════ #}
+  <nav class="analysis-steps" aria-label="Analysis progress">
+    <ol>
+      <li class="analysis-step is-active" data-step="search">
+        <span class="analysis-step__num">1</span>
+        <span class="analysis-step__label" data-i18n="step_search">Search</span>
+      </li>
+      <li class="analysis-step" data-step="select">
+        <span class="analysis-step__num">2</span>
+        <span class="analysis-step__label" data-i18n="step_select">Select</span>
+      </li>
+      <li class="analysis-step" data-step="pipeline">
+        <span class="analysis-step__num">3</span>
+        <span class="analysis-step__label" data-i18n="step_pipeline">Pipeline</span>
+      </li>
+      <li class="analysis-step" data-step="results">
+        <span class="analysis-step__num">4</span>
+        <span class="analysis-step__label" data-i18n="step_results">Results</span>
+      </li>
+    </ol>
+  </nav>
+
+  {# ═════════════════════ STEP 2 — SEARCH ═════════════════════ #}
+  <section class="analysis-panel is-active" data-panel="search" aria-labelledby="search-title">
+    <header class="analysis-panel__header">
+      <p class="analysis-eyebrow" data-i18n="search_eyebrow">Step 1 · Target</p>
+      <h1 class="analysis-title" id="search-title" data-i18n="search_title">Find a lightcurve</h1>
+      <p class="analysis-sub" data-i18n="search_sub">
+        Query MAST for Kepler, K2 and TESS observations of any resolvable star or TIC ID.
+      </p>
+    </header>
+
+    <form id="search-form" class="search-form" novalidate>
+      <div class="search-form__main">
+        <label class="search-field search-field--grow">
+          <span data-i18n="field_target">Target</span>
+          <input type="text" id="search-target" name="target"
+                 placeholder="e.g. WASP-121, TIC 25155310, Kepler-10"
+                 autocomplete="off" required />
+        </label>
+        <button type="submit" id="search-submit" class="btn btn-cta">
+          <i data-lucide="search" aria-hidden="true"></i>
+          <span data-i18n="btn_search">Search</span>
+        </button>
+      </div>
+
+      <div class="search-form__filters">
+        <div class="search-field search-field--pills">
+          <span data-i18n="field_mission">Mission</span>
+          <div id="search-mission"
+               class="mission-pills"
+               role="group"
+               aria-label="Mission filter">
+            <label class="mission-pill">
+              <input type="checkbox" value="TESS" checked />
+              <span>TESS</span>
+            </label>
+            <label class="mission-pill">
+              <input type="checkbox" value="Kepler" />
+              <span>Kepler</span>
+            </label>
+            <label class="mission-pill">
+              <input type="checkbox" value="K2" />
+              <span>K2</span>
+            </label>
+          </div>
+        </div>
+        <label class="search-field">
+          <span data-i18n="field_sector">Sector</span>
+          <input type="number" id="search-sector" min="1" placeholder="e.g. 14" />
+        </label>
+        <label class="search-field">
+          <span data-i18n="field_quarter">Quarter</span>
+          <input type="number" id="search-quarter" min="0" placeholder="Kepler" />
+        </label>
+        <label class="search-field">
+          <span data-i18n="field_campaign">Campaign</span>
+          <input type="number" id="search-campaign" min="0" placeholder="K2" />
+        </label>
+        <label class="search-field">
+          <span data-i18n="field_year">Year</span>
+          <input type="number" id="search-year" min="2000" max="2099" placeholder="e.g. 2019" />
+        </label>
+        <label class="search-field">
+          <span data-i18n="field_author">Author</span>
+          <input type="text" id="search-author" placeholder="e.g. SPOC, Kepler" />
+        </label>
+        <label class="search-field">
+          <span data-i18n="field_limit">Limit</span>
+          <input type="number" id="search-limit" min="1" max="500" placeholder="200" />
+        </label>
+      </div>
+    </form>
+
+    {# ───────── Orbit loading animation ───────── #}
+    <div id="search-loader" class="orbit-loader" hidden aria-live="polite">
+      <div class="orbit-loader__scene">
+        <div class="orbit-loader__sun" aria-hidden="true"></div>
+        <div class="orbit-loader__orbit orbit-loader__orbit--1" aria-hidden="true">
+          <div class="orbit-loader__planet"></div>
+        </div>
+        <div class="orbit-loader__orbit orbit-loader__orbit--2" aria-hidden="true">
+          <div class="orbit-loader__planet orbit-loader__planet--blue"></div>
+        </div>
+      </div>
+      <p class="orbit-loader__text" data-i18n="loading_search">Scanning the MAST archive…</p>
+    </div>
+
+    <div id="search-error" class="analysis-error" hidden role="alert"></div>
+  </section>
+
+  {# ═════════════════════ STEP 3 — SELECT ═════════════════════ #}
+  <section class="analysis-panel" data-panel="select" aria-labelledby="select-title" hidden>
+    <header class="analysis-panel__header analysis-panel__header--row">
+      <div>
+        <p class="analysis-eyebrow" data-i18n="select_eyebrow">Step 2 · Observations</p>
+        <h2 class="analysis-title" id="select-title" data-i18n="select_title">
+          Select observations
+        </h2>
+        <p class="analysis-sub" id="select-sub"></p>
+      </div>
+      <div class="analysis-panel__actions">
+        <button type="button" id="select-back" class="btn btn-ghost">
+          <i data-lucide="arrow-left" aria-hidden="true"></i>
+          <span data-i18n="btn_back">Back</span>
+        </button>
+        <button type="button" id="select-submit" class="btn btn-cta" disabled>
+          <i data-lucide="download" aria-hidden="true"></i>
+          <span data-i18n="btn_download_clean">Download & Clean Data</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="table-wrap">
+      <table class="results-table" id="results-table">
+        <thead>
+          <tr>
+            <th class="col-check">
+              <input type="checkbox" id="results-check-all" aria-label="Select all rows" />
+            </th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="download-loader" class="orbit-loader" hidden aria-live="polite">
+      <div class="orbit-loader__scene">
+        <div class="orbit-loader__sun" aria-hidden="true"></div>
+        <div class="orbit-loader__orbit orbit-loader__orbit--1" aria-hidden="true">
+          <div class="orbit-loader__planet"></div>
+        </div>
+        <div class="orbit-loader__orbit orbit-loader__orbit--2" aria-hidden="true">
+          <div class="orbit-loader__planet orbit-loader__planet--blue"></div>
+        </div>
+      </div>
+      <p class="orbit-loader__text" data-i18n="loading_download">
+        Downloading, normalising and stitching observations…
+      </p>
+    </div>
+
+    <div id="select-error" class="analysis-error" hidden role="alert"></div>
+  </section>
+
+  {# ═════════════════════ STEP 4 — PIPELINE ═════════════════════ #}
+  <section class="analysis-panel" data-panel="pipeline" aria-labelledby="pipeline-title" hidden>
+    <header class="analysis-panel__header analysis-panel__header--row">
+      <div>
+        <p class="analysis-eyebrow" data-i18n="pipeline_eyebrow">Step 3 · Pipeline</p>
+        <h2 class="analysis-title" id="pipeline-title" data-i18n="pipeline_title">
+          Data validation & MCMC configuration
+        </h2>
+        <p class="analysis-sub">
+          <span data-i18n="pipeline_sub">Inspect the cleaned data, then tune the transit fit.</span>
+          <span id="pipeline-period" class="pipeline-meta"></span>
+        </p>
+      </div>
+      <div class="analysis-panel__actions">
+        <button type="button" id="pipeline-back" class="btn btn-ghost">
+          <i data-lucide="arrow-left" aria-hidden="true"></i>
+          <span data-i18n="btn_back">Back</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="pipeline-tabs" role="tablist">
+      <button type="button" class="pipeline-tab is-active" role="tab"
+              data-tab="validate" aria-selected="true">
+        <i data-lucide="check-circle-2" aria-hidden="true"></i>
+        <span data-i18n="tab_validate">A · Data Validation</span>
+      </button>
+      <button type="button" class="pipeline-tab" role="tab"
+              data-tab="configure" aria-selected="false">
+        <i data-lucide="sliders-horizontal" aria-hidden="true"></i>
+        <span data-i18n="tab_configure">B · MCMC Configuration</span>
+      </button>
+
+      {# Shared plot options — visible in both tabs, drives every
+         server-side Matplotlib re-render through analysis.js. #}
+      <div class="pipeline-options" role="group"
+           aria-label="Plot rendering options">
+        <label class="pipeline-switch">
+          <input type="checkbox" id="toggle-errorbars" />
+          <span class="pipeline-switch__track" aria-hidden="true">
+            <span class="pipeline-switch__thumb"></span>
+          </span>
+          <span class="pipeline-switch__label"
+                data-i18n="toggle_errorbars">Show error bars</span>
+        </label>
+        <small class="pipeline-switch__hint"
+               data-i18n="toggle_errorbars_hint">
+          Overlay σ(F) on the data points. Re-renders plots instantly.
+        </small>
+      </div>
+    </div>
+
+    {# ───────── Phase A: validation plots ───────── #}
+    <div class="pipeline-tabpanel is-active" data-tabpanel="validate" role="tabpanel">
+      {# ───── Stellar Information card (renders above the raw LC) ───── #}
+      <aside id="stellar-info" class="stellar-card" hidden aria-live="polite">
+        <header class="stellar-card__header">
+          <i data-lucide="sparkles" aria-hidden="true"></i>
+          <h3 data-i18n="stellar_header">Stellar information</h3>
+        </header>
+        <dl class="stellar-grid" id="stellar-grid"></dl>
+      </aside>
+
+      <figure class="plot-card">
+        <figcaption data-i18n="plot_raw">Stitched raw lightcurve</figcaption>
+        <img id="plot-raw" alt="Raw lightcurve" />
+      </figure>
+      <figure class="plot-card">
+        <figcaption data-i18n="plot_periodogram">BLS periodogram</figcaption>
+        <img id="plot-periodogram" alt="Periodogram" />
+      </figure>
+      <figure class="plot-card">
+        <figcaption data-i18n="plot_folded">Initial folded lightcurve</figcaption>
+        <img id="plot-folded" alt="Folded lightcurve" />
+      </figure>
+    </div>
+
+    {# ───────── Phase B: MCMC control panel ───────── #}
+    <div class="pipeline-tabpanel" data-tabpanel="configure" role="tabpanel" hidden>
+      <form id="mcmc-form" class="mcmc-form" novalidate>
+        <fieldset class="mcmc-group">
+          <legend data-i18n="mcmc_params">Free parameters</legend>
+          <div class="mcmc-checks">
+            <label><input type="checkbox" name="fitted" value="rp" checked /> rp</label>
+            <label><input type="checkbox" name="fitted" value="inc" checked /> inc</label>
+            <label><input type="checkbox" name="fitted" value="a" checked /> a/Rs</label>
+            <label><input type="checkbox" name="fitted" value="t0" checked /> t0</label>
+            <label><input type="checkbox" name="fitted" value="u1" /> u1</label>
+            <label><input type="checkbox" name="fitted" value="u2" /> u2</label>
+            <label><input type="checkbox" name="fitted" value="per" /> per</label>
+          </div>
+        </fieldset>
+
+        <fieldset class="mcmc-group">
+          <legend data-i18n="mcmc_bounds">Bounds & initial guess</legend>
+          <label class="mcmc-toggle">
+            <input type="checkbox" id="mcmc-auto" checked />
+            <span data-i18n="mcmc_auto">Let the program auto-search bounds & x0</span>
+          </label>
+
+          <div id="mcmc-manual" class="mcmc-manual" hidden>
+            <p class="mcmc-manual__hint" data-i18n="mcmc_manual_hint">
+              One parameter per line: <code>name  low  high  x0</code>
+            </p>
+            <textarea id="mcmc-manual-text" rows="6"
+                      placeholder="rp   0.05   0.20   0.10&#10;inc  85.0   90.0   89.0&#10;a    6.0   14.0   9.0&#10;t0   2458000.05  2458000.15  2458000.10"></textarea>
+          </div>
+        </fieldset>
+
+        <fieldset class="mcmc-group mcmc-group--grid">
+          <legend data-i18n="mcmc_runtime">Runtime</legend>
+          <label class="mcmc-field">
+            <span data-i18n="mcmc_walkers">Walkers</span>
+            <input type="number" id="mcmc-walkers" name="walkers"
+                   min="8" max="512" value="32" />
+          </label>
+          <label class="mcmc-field">
+            <span data-i18n="mcmc_steps">Steps</span>
+            <input type="number" id="mcmc-steps" name="steps"
+                   min="100" max="200000" value="4000" step="100" />
+          </label>
+          <label class="mcmc-toggle mcmc-toggle--inline">
+            <input type="checkbox" id="mcmc-mp" />
+            <span data-i18n="mcmc_mp">Multiprocessing</span>
+          </label>
+        </fieldset>
+
+        <div class="mcmc-actions">
+          <button type="submit" id="mcmc-launch" class="btn btn-cta">
+            <i data-lucide="play" aria-hidden="true"></i>
+            <span data-i18n="btn_launch_mcmc">Launch MCMC</span>
+          </button>
+        </div>
+
+        <div id="mcmc-error" class="analysis-error" hidden role="alert"></div>
+      </form>
+    </div>
+
+    {# ───────── Phase C: MCMC progress (multi-stage) ───────── #}
+    <div id="mcmc-progress" class="mcmc-progress" hidden aria-live="polite">
+      <div class="mcmc-progress__header">
+        <i data-lucide="activity" aria-hidden="true"></i>
+        <span id="mcmc-progress-msg" data-i18n="mcmc_running">Running MCMC…</span>
+      </div>
+
+      {# Stage A · pre-processing: shown during the ~20 s L-BFGS-B + DE
+         optimiser warm-up, replaced by the progress bar once emcee
+         starts emitting step updates. #}
+      <div id="mcmc-preprocess" class="mcmc-preprocess" hidden>
+        <div class="mcmc-preprocess__spinner" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+        <p class="mcmc-preprocess__text" data-i18n="mcmc_preprocess">
+          Pre-processing &amp; initial optimisation — this takes a few seconds.
+        </p>
+      </div>
+
+      {# Stage B · sampling: the actual emcee walkers. #}
+      <div id="mcmc-sampling" class="mcmc-sampling" hidden>
+        <div class="progress-bar">
+          <div id="mcmc-progress-fill" class="progress-bar__fill"></div>
+        </div>
+        <p id="mcmc-progress-stats" class="mcmc-progress__stats"></p>
+      </div>
+    </div>
+  </section>
+
+  {# ═════════════════════ STEP 5 — RESULTS ═════════════════════ #}
+  <section class="analysis-panel" data-panel="results" aria-labelledby="results-title" hidden>
+    <header class="analysis-panel__header analysis-panel__header--row">
+      <div>
+        <p class="analysis-eyebrow" data-i18n="results_eyebrow">Step 4 · Results</p>
+        <h2 class="analysis-title" id="results-title" data-i18n="results_title">
+          Best-fit transit parameters
+        </h2>
+        <p class="analysis-sub" id="results-sub"></p>
+      </div>
+      <div class="analysis-panel__actions">
+        <button type="button" id="results-restart" class="btn btn-ghost">
+          <i data-lucide="refresh-cw" aria-hidden="true"></i>
+          <span data-i18n="btn_new_analysis">New analysis</span>
+        </button>
+        <button type="button" id="results-report" class="btn btn-cta">
+          <i data-lucide="file-text" aria-hidden="true"></i>
+          <span data-i18n="btn_report">Generate & Download Report</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="results-grid">
+      <div class="results-card results-card--stats">
+        <h3 data-i18n="results_summary">Posterior summary</h3>
+        <div class="table-wrap table-wrap--compact">
+          <table class="summary-table" id="summary-table">
+            <thead>
+              <tr>
+                <th data-i18n="col_param">Parameter</th>
+                <th data-i18n="col_median">Median</th>
+                <th data-i18n="col_plus">+1σ</th>
+                <th data-i18n="col_minus">−1σ</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="results-card results-card--metrics">
+        <h3 data-i18n="results_metrics">Fit diagnostics</h3>
+        <dl id="results-metrics" class="metrics-list"></dl>
+      </div>
+
+      <figure class="results-card results-card--wide">
+        <figcaption data-i18n="plot_folded_model">Folded lightcurve + best-fit model</figcaption>
+        <img id="plot-folded-model" alt="Folded lightcurve with model" />
+      </figure>
+
+      <figure class="results-card results-card--wide">
+        <figcaption data-i18n="plot_odd_even">Odd / even transits</figcaption>
+        <img id="plot-odd-even" alt="Odd / even transits" />
+      </figure>
+
+      <figure class="results-card results-card--wide">
+        <figcaption data-i18n="plot_corner">Corner plot</figcaption>
+        <img id="plot-corner" alt="Corner plot of posterior distributions" />
+      </figure>
+    </div>
+
+    <div id="report-status" class="analysis-error" hidden role="status"></div>
+  </section>
+
+</main>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="/static/js/analysis.js" defer></script>
+{% endblock %}
